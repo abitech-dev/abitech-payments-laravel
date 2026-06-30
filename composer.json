@@ -1,0 +1,27 @@
+{
+    "name": "abitech/payments-laravel",
+    "description": "Motor de pasarelas de pago para aplicaciones Laravel.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2|^8.3",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/database": "^11.0|^12.0|^13.0",
+        "illuminate/http": "^11.0|^12.0|^13.0",
+        "mercadopago/dx-php": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Abitech\\Payments\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Abitech\\Payments\\Providers\\PaymentsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
