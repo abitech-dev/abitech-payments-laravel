@@ -11,7 +11,7 @@ return new class extends Migration
     /**
      * Conexión de base de datos a usar.
      */
-    protected $connection;
+    protected ?string $connection = null;
 
     /**
      * Crear una nueva instancia de la migración.
@@ -35,7 +35,7 @@ return new class extends Migration
             $table->string('symbol', 10)->comment('Simbolo de moneda');
             $table->integer('decimals')->default(2)->comment('Decimales de moneda');
             $table->boolean('is_active')->default(true)->comment('Estado activo registro');
-            $table->softDeletes();
+            $table->softDeletes()->comment('Fecha de eliminacion');
             $table->timestamps();
         });
 
@@ -49,7 +49,7 @@ return new class extends Migration
             $table->string('name', 100)->comment('Nombre de pasarela');
             $table->boolean('is_active')->default(true)->comment('Estado activo registro');
             $table->json('credentials')->nullable()->comment('Credenciales cifradas pasarela');
-            $table->softDeletes();
+            $table->softDeletes()->comment('Fecha de eliminacion');
             $table->timestamps();
         });
 
@@ -67,7 +67,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true)->comment('Estado activo registro');
             $table->decimal('min_amount', 12, 2)->default(0.00)->comment('Monto minimo admitido');
             $table->decimal('max_amount', 12, 2)->default(99999999.99)->comment('Monto maximo admitido');
-            $table->softDeletes();
+            $table->softDeletes()->comment('Fecha de eliminacion');
             $table->timestamps();
 
             $table->foreign('gateway_id')
@@ -110,7 +110,7 @@ return new class extends Migration
             $table->json('headers')->comment('Cabeceras del webhook');
             $table->string('status', 50)->default('received')->comment('Estado del procesamiento');
             $table->text('error_message')->nullable()->comment('Detalle del error');
-            $table->timestamp('created_at')->nullable()->comment('Fecha de registro');
+            $table->timestamp('created_at')->useCurrent()->comment('Fecha de registro');
         });
     }
 

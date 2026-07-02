@@ -40,4 +40,11 @@ interface PaymentGatewayInterface
      * @throws \Abitech\Payments\Exceptions\PaymentGatewayException
      */
     public function handleWebhook(Request $request): WebhookResult;
+
+    /**
+     * Verificar conectividad con la pasarela (health check).
+     *
+     * @throws \Abitech\Payments\Exceptions\PaymentGatewayException
+     */
+    public function health(): bool;
 }

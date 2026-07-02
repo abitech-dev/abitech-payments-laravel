@@ -4,34 +4,41 @@ declare(strict_types=1);
 
 namespace Abitech\Payments\Drivers;
 
+use Abitech\Payments\Concerns\RateLimitsApiCalls;
+use Abitech\Payments\Concerns\RetriesApiCalls;
 use Abitech\Payments\Contracts\PaymentGatewayInterface;
 use Abitech\Payments\Exceptions\UnsupportedCurrencyException;
 
+/**
+ * Clase base para todos los drivers de pasarelas de pago.
+ *
+ * Provee rate limiting, reintentos con backoff, validacion de divisas
+ * y acceso a la configuracion de la pasarela.
+ */
 abstract class AbstractPaymentDriver implements PaymentGatewayInterface
 {
-    /**
-     * Configuración específica de la pasarela.
-     */
+    use RateLimitsApiCalls;
+    use RetriesApiCalls;
+
+    /** Configuracion de la pasarela (credenciales, secrets). */
     protected array $config = [];
 
-    /**
-     * Listado de divisas soportadas nativamente por este driver.
-     * Debe ser sobreescrito en cada driver concreto.
-     */
+    /** Codigos ISO de divisas soportadas por esta pasarela. */
     protected array $supportedCurrencies = [];
 
-    /**
-     * Crear una nueva instancia de driver.
-     */
     public function __construct(array $config)
     {
         $this->config = $config;
     }
 
     /**
-     * Validar si la divisa especificada es compatible con este driver.
-     *
-     * @throws \Abitech\Payments\Exceptions\UnsupportedCurrencyException
+     * Nombre unico del driver usado como slug en el manager.
+     * Ej: 'mercadopago_checkout', 'stripe_paymentintents'.
+     */
+    abstract public function getGatewayName(): string;
+
+    /**
+     * Lanza UnsupportedCurrencyException si la divisa no esta en supportedCurrencies.
      */
     public function validateCurrency(string $currency): void
     {

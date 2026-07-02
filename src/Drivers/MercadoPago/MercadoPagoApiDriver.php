@@ -5,29 +5,28 @@ declare(strict_types=1);
 namespace Abitech\Payments\Drivers\MercadoPago;
 
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
+use Abitech\Payments\Concerns\HandlesMercadoPagoWebhook;
 use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
-use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Payment\PaymentClient;
-use MercadoPago\Resources\RequestOptions;
 use MercadoPago\Exceptions\MPApiException;
-use Illuminate\Http\Request;
 use Exception;
 
 class MercadoPagoApiDriver extends AbstractPaymentDriver
 {
-    /**
-     * Divisas soportadas por Mercado Pago.
-     */
+    use HandlesMercadoPagoWebhook;
+
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 
-    /**
-     * Inicializar credenciales del SDK de Mercado Pago.
-     */
+    public function getGatewayName(): string
+    {
+        return 'mercadopago_api';
+    }
+
     protected function authenticate(): void
     {
         $accessToken = $this->config['access_token'] ?? null;
@@ -41,9 +40,33 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
         MercadoPagoConfig::setAccessToken($accessToken);
     }
 
-    /**
-     * Procesar cobro transparente directo usando token de tarjeta.
-     */
+    public function health(): bool
+    {
+        $this->authenticate();
+
+        try {
+            $client = new PaymentClient();
+            $client->get(1);
+            return true;
+        } catch (MPApiException $e) {
+            if ($e->getStatusCode() === 404) {
+                return true;
+            }
+
+            throw new PaymentGatewayException(
+                "Mercado Pago no responde: " . $e->getMessage(),
+                $e->getStatusCode() ?: 500,
+                $e
+            );
+        } catch (Exception $e) {
+            throw new PaymentGatewayException(
+                "Fallo de conectividad con Mercado Pago: " . $e->getMessage(),
+                500,
+                $e
+            );
+        }
+    }
+
     public function purchase(PaymentRequest $request): PaymentResponse
     {
         $this->validateCurrency($request->currency);
@@ -55,44 +78,42 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
         }
 
         $this->authenticate();
-        $client = new PaymentClient();
+        $this->throttle('mercadopago_api:purchase');
 
-        $payload = [
-            'transaction_amount' => $request->amount,
-            'token' => $request->cardToken,
-            'description' => $request->description,
-            'installments' => $request->metadata['installments'] ?? 1,
-            'payment_method_id' => $request->metadata['payment_method_id'] ?? null,
-            'payer' => [
-                'email' => $request->email,
-                'identification' => array_filter([
-                    'type' => $request->metadata['payer_id_type'] ?? null,
-                    'number' => $request->metadata['payer_id_number'] ?? null,
-                ])
-            ],
-        ];
+        return $this->retry(function () use ($request) {
+            $client = new PaymentClient();
 
-        // Configurar opciones del request (Idempotencia)
-        $options = new RequestOptions();
-        
-        if ($request->idempotencyKey) {
-            $options->setCustomHeaders([
-                'X-Idempotency-Key: ' . $request->idempotencyKey
-            ]);
-        }
-
-        try {
-            $payment = $client->create($payload, $options);
-
-            $statusMap = [
-                'approved' => 'completed',
-                'in_process' => 'pending',
-                'pending' => 'pending',
-                'rejected' => 'failed',
-                'cancelled' => 'failed',
+            $payload = [
+                'transaction_amount' => $request->amount,
+                'token' => $request->cardToken,
+                'description' => $request->description,
+                'installments' => $request->metadata['installments'] ?? 1,
+                'payment_method_id' => $request->metadata['payment_method_id'] ?? null,
+                'payer' => [
+                    'email' => $request->email,
+                    'identification' => array_filter([
+                        'type' => $request->metadata['payer_id_type'] ?? null,
+                        'number' => $request->metadata['payer_id_number'] ?? null,
+                    ])
+                ],
             ];
 
-            $mappedStatus = $statusMap[$payment->status] ?? 'pending';
+            $options = null;
+
+            if ($request->idempotencyKey) {
+                $className = 'MercadoPago\Resources\RequestOptions';
+
+                if (class_exists($className)) {
+                    $options = new $className();
+                    $options->setCustomHeaders([
+                        'X-Idempotency-Key: ' . $request->idempotencyKey
+                    ]);
+                }
+            }
+
+            $payment = $client->create($payload, $options);
+
+            $mappedStatus = $this->mapMercadoPagoStatus($payment->status);
             $success = in_array($mappedStatus, ['completed', 'pending'], true);
 
             return new PaymentResponse(
@@ -101,112 +122,75 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 status: $mappedStatus,
                 redirectUrl: null,
                 errorMessage: $payment->status_detail ?? null,
-                raw: $payment->toArray()
+                raw: json_decode(json_encode($payment), true)
             );
-        } catch (MPApiException $e) {
-            throw new PaymentGatewayException(
-                "Error en API de Mercado Pago: " . $e->getMessage(),
-                $e->getStatusCode() ?: 500,
-                $e
-            );
-        } catch (Exception $e) {
-            throw new PaymentGatewayException(
-                "Error inesperado al procesar pago por API de Mercado Pago: " . $e->getMessage(),
-                500,
-                $e
-            );
-        }
+        });
     }
 
-    /**
-     * Reembolsar un pago procesado.
-     */
     public function refund(string $transactionId, ?float $amount = null): bool
     {
         $this->authenticate();
-        $client = new PaymentClient();
+        $this->throttle('mercadopago_api:refund');
 
-        try {
-            $client->refund($transactionId, $amount);
-            return true;
-        } catch (MPApiException $e) {
-            throw new PaymentGatewayException(
-                "Error al reembolsar pago en Mercado Pago: " . $e->getMessage(),
-                $e->getStatusCode() ?: 500,
-                $e
-            );
-        } catch (Exception $e) {
-            throw new PaymentGatewayException(
-                "Fallo inesperado al reembolsar pago en Mercado Pago: " . $e->getMessage(),
-                500,
-                $e
-            );
-        }
+        return $this->retry(function () use ($transactionId, $amount) {
+            return $this->sendRefundRequest($transactionId, $amount);
+        });
     }
 
-    /**
-     * Transferir fondos a un tercero.
-     */
     public function payout(PayoutRequest $request): PayoutResponse
     {
-        throw new PaymentGatewayException(
-            "El driver de Mercado Pago API no soporta retiros automatizados directos."
-        );
+        $this->validateCurrency($request->currency);
+        $this->authenticate();
+        $this->throttle('mercadopago_api:payout');
+
+        return $this->retry(function () use ($request) {
+            $client = new PaymentClient();
+            $payment = $client->create([
+                'transaction_amount' => $request->amount,
+                'description' => $request->description,
+                'payment_method_id' => 'account_money',
+                'payer' => ['email' => $request->recipient],
+            ]);
+
+            return new PayoutResponse(
+                success: $payment->status === 'approved',
+                payoutId: (string) $payment->id,
+                status: $payment->status === 'approved' ? 'completed' : 'pending',
+                raw: json_decode(json_encode($payment), true)
+            );
+        });
     }
 
-    /**
-     * Recibir y normalizar webhook de Mercado Pago.
-     */
-    public function handleWebhook(Request $request): WebhookResult
+    protected function sendRefundRequest(string $transactionId, ?float $amount = null): true
     {
-        $this->authenticate();
+        $accessToken = $this->config['access_token'];
+        $url = "https://api.mercadopago.com/v1/payments/{$transactionId}/refunds";
 
-        $paymentId = $request->input('data.id') ?? $request->input('id');
-        $type = $request->input('type');
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                "Authorization: Bearer {$accessToken}",
+            ],
+            CURLOPT_POSTFIELDS => json_encode(array_filter([
+                'amount' => $amount,
+            ])),
+        ]);
 
-        if (empty($paymentId) || ($type !== null && $type !== 'payment')) {
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response === false || $httpCode >= 400) {
+            $body = $response ? json_decode($response, true) : [];
             throw new PaymentGatewayException(
-                "Notificacion recibida no corresponde a un pago valido de Mercado Pago."
+                "Error al reembolsar pago en Mercado Pago: " . ($body['message'] ?? 'Error de conexion'),
+                $httpCode ?: 500,
             );
         }
 
-        $client = new PaymentClient();
-
-        try {
-            $payment = $client->get((int) $paymentId);
-
-            $statusMap = [
-                'approved' => 'completed',
-                'rejected' => 'failed',
-                'cancelled' => 'failed',
-                'in_process' => 'pending',
-                'pending' => 'pending',
-                'refunded' => 'refunded',
-            ];
-
-            $mappedStatus = $statusMap[$payment->status] ?? 'pending';
-
-            return new WebhookResult(
-                gateway: 'mercadopago',
-                eventType: $type ?? 'payment',
-                transactionId: (string) $payment->id,
-                status: $mappedStatus,
-                amount: (float) $payment->transaction_amount,
-                currency: $payment->currency_id,
-                raw: $payment->toArray()
-            );
-        } catch (MPApiException $e) {
-            throw new PaymentGatewayException(
-                "Error de Mercado Pago al obtener el detalle del pago: " . $e->getMessage(),
-                $e->getStatusCode() ?: 500,
-                $e
-            );
-        } catch (Exception $e) {
-            throw new PaymentGatewayException(
-                "Error al procesar el webhook de Mercado Pago: " . $e->getMessage(),
-                500,
-                $e
-            );
-        }
+        return true;
     }
 }

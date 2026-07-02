@@ -24,6 +24,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Idempotencia
+    |--------------------------------------------------------------------------
+    | Configuracion de llave de idempotencia para prevenir operaciones duplicadas.
+    | La llave se envia via encabezado HTTP X-Idempotency-Key.
+    */
+    'idempotency' => [
+        'enabled' => env('ABITECH_PAYMENTS_IDEMPOTENCY', true),
+        'min_length' => 16,
+        'max_length' => 255,
+        'header' => 'X-Idempotency-Key',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pasarela de Pago por Defecto
     |--------------------------------------------------------------------------
     */
