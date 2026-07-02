@@ -22,19 +22,11 @@ class PaymentGatewayException extends Exception implements Responsable
     {
         $status = $this->isValidHttpStatus($this->code) ? $this->code : 500;
 
-        $payload = [
+        return response()->json([
             'success' => false,
             'message' => $this->getMessage(),
             'errors' => null,
-        ];
-
-        if (config('app.debug')) {
-            $payload['exception'] = static::class;
-            $payload['file'] = $this->getFile();
-            $payload['line'] = $this->getLine();
-        }
-
-        return response()->json($payload, $status);
+        ], $status);
     }
 
     /**
