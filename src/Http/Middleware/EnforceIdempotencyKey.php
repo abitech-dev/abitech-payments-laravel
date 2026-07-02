@@ -55,13 +55,15 @@ class EnforceIdempotencyKey
 
         if (empty($idempotencyKey)) {
             throw new PaymentGatewayException(
-                "Se requiere el encabezado {$header} para operaciones de pago."
+                "Se requiere el encabezado {$header} para operaciones de pago.",
+                422
             );
         }
 
         if (strlen($idempotencyKey) < $minLength || strlen($idempotencyKey) > $maxLength) {
             throw new PaymentGatewayException(
-                "El encabezado {$header} debe tener entre {$minLength} y {$maxLength} caracteres."
+                "El encabezado {$header} debe tener entre {$minLength} y {$maxLength} caracteres.",
+                422
             );
         }
 
