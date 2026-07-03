@@ -29,6 +29,22 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
     public function __construct(array $config)
     {
         $this->config = $config;
+
+        if (isset($config['max_retries'])) {
+            $this->maxRetries = (int) $config['max_retries'];
+        }
+
+        if (isset($config['retry_base_delay_ms'])) {
+            $this->retryBaseDelayMs = (int) $config['retry_base_delay_ms'];
+        }
+
+        if (isset($config['retry_multiplier'])) {
+            $this->retryMultiplier = (float) $config['retry_multiplier'];
+        }
+
+        if (isset($config['max_requests_per_minute'])) {
+            $this->maxRequestsPerMinute = (int) $config['max_requests_per_minute'];
+        }
     }
 
     /**

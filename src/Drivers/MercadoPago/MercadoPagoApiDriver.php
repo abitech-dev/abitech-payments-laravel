@@ -10,6 +10,9 @@ use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
+use Abitech\Payments\Events\PaymentSucceeded;
+use Abitech\Payments\Events\PayoutProcessed;
+use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Payment\PaymentClient;
@@ -116,7 +119,7 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
             $mappedStatus = $this->mapMercadoPagoStatus($payment->status);
             $success = in_array($mappedStatus, ['completed', 'pending'], true);
 
-            return new PaymentResponse(
+            $response = new PaymentResponse(
                 success: $success,
                 transactionId: (string) $payment->id,
                 status: $mappedStatus,
@@ -124,6 +127,10 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 errorMessage: $payment->status_detail ?? null,
                 raw: json_decode(json_encode($payment), true)
             );
+
+            event(new PaymentSucceeded($response, 'mercadopago_api'));
+
+            return $response;
         });
     }
 
@@ -132,9 +139,13 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
         $this->authenticate();
         $this->throttle('mercadopago_api:refund');
 
-        return $this->retry(function () use ($transactionId, $amount) {
+        $result = $this->retry(function () use ($transactionId, $amount) {
             return $this->sendRefundRequest($transactionId, $amount);
         });
+
+        event(new RefundProcessed('mercadopago_api', $transactionId, $amount));
+
+        return $result;
     }
 
     public function payout(PayoutRequest $request): PayoutResponse
@@ -152,12 +163,16 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 'payer' => ['email' => $request->recipient],
             ]);
 
-            return new PayoutResponse(
+            $response = new PayoutResponse(
                 success: $payment->status === 'approved',
                 payoutId: (string) $payment->id,
                 status: $payment->status === 'approved' ? 'completed' : 'pending',
                 raw: json_decode(json_encode($payment), true)
             );
+
+            event(new PayoutProcessed($response, 'mercadopago_api'));
+
+            return $response;
         });
     }
 

@@ -64,6 +64,8 @@ class PaymentsServiceProvider extends ServiceProvider
 
         if (method_exists($router, 'aliasMiddleware')) {
             $router->aliasMiddleware('abitech.idempotency', EnforceIdempotencyKey::class);
+        } elseif (method_exists($router, 'middleware')) {
+            $router->middleware('abitech.idempotency', EnforceIdempotencyKey::class);
         }
     }
 }

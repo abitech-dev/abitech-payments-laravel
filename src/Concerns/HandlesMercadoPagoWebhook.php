@@ -55,11 +55,24 @@ trait HandlesMercadoPagoWebhook
         }
 
         $paymentId = $request->input('data.id') ?? $request->input('id');
-        $type = $request->input('type');
+        $type = $request->input('type', 'payment');
 
-        if (empty($paymentId) || ($type !== null && $type !== 'payment')) {
+        $validTypes = ['payment', 'subscription_preapproval', 'subscription_authorized_payment', 'merchant_order'];
+
+        if (empty($paymentId) || !in_array($type, $validTypes, true)) {
             throw new PaymentGatewayException(
-                "Notificacion recibida no corresponde a un pago valido de Mercado Pago."
+                "Notificacion recibida no corresponde a un evento valido de Mercado Pago.",
+                422
+            );
+        }
+
+        if ($type !== 'payment') {
+            return new WebhookResult(
+                gateway: $this->getGatewayName(),
+                eventType: $type,
+                transactionId: (string) $paymentId,
+                status: 'unknown',
+                raw: $request->all()
             );
         }
 
@@ -69,7 +82,7 @@ trait HandlesMercadoPagoWebhook
             $payment = $client->get((int) $paymentId);
 
             return new WebhookResult(
-                gateway: 'mercadopago',
+                gateway: $this->getGatewayName(),
                 eventType: $type ?? 'payment',
                 transactionId: (string) $payment->id,
                 status: $this->mapMercadoPagoStatus($payment->status),

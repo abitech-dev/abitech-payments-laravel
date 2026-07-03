@@ -15,6 +15,9 @@ use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
+use Abitech\Payments\Events\PaymentSucceeded;
+use Abitech\Payments\Events\PayoutProcessed;
+use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 
 class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
@@ -96,13 +99,17 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     : [],
             ]);
 
-            return new PaymentResponse(
+            $response = new PaymentResponse(
                 success: true,
                 transactionId: $session->id,
                 status: 'pending',
                 redirectUrl: $session->url,
                 raw: $session->toArray()
             );
+
+            event(new PaymentSucceeded($response, 'stripe_checkout'));
+
+            return $response;
         });
     }
 
@@ -125,6 +132,9 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             }
 
             $this->client->refunds->create($params);
+
+            event(new RefundProcessed('stripe_checkout', $transactionId, $amount));
+
             return true;
         });
     }
@@ -143,12 +153,16 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 'metadata' => $request->metadata,
             ]);
 
-            return new PayoutResponse(
+            $response = new PayoutResponse(
                 success: true,
                 payoutId: $transfer->id,
                 status: 'completed',
                 raw: $transfer->toArray()
             );
+
+            event(new PayoutProcessed($response, 'stripe_checkout'));
+
+            return $response;
         });
     }
 

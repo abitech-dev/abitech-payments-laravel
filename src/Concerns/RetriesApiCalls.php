@@ -53,6 +53,10 @@ trait RetriesApiCalls
             } catch (\Throwable $e) {
                 $httpCode = $e->getCode();
 
+                if (method_exists($e, 'getHttpStatus')) {
+                    $httpCode = $e->getHttpStatus();
+                }
+
                 if ($httpCode >= 100 && $httpCode < 600) {
                     $wrapped = new PaymentGatewayException($e->getMessage(), $httpCode, $e);
 
@@ -66,7 +70,7 @@ trait RetriesApiCalls
                     continue;
                 }
 
-                throw $e;
+                throw new PaymentGatewayException($e->getMessage(), 500, $e);
             }
         }
 

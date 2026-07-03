@@ -12,6 +12,9 @@ use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\WebhookResult;
+use Abitech\Payments\Events\PaymentSucceeded;
+use Abitech\Payments\Events\PayoutProcessed;
+use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 
 class StripePaymentIntentsDriver extends AbstractPaymentDriver
@@ -81,7 +84,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
 
             $status = $this->mapStatus($intent->status);
 
-            return new PaymentResponse(
+            $response = new PaymentResponse(
                 success: $status === 'completed' || $status === 'pending',
                 transactionId: $intent->id,
                 status: $status,
@@ -89,6 +92,10 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
                 errorMessage: $intent->last_payment_error?->message ?? null,
                 raw: $intent->toArray()
             );
+
+            event(new PaymentSucceeded($response, 'stripe_paymentintents'));
+
+            return $response;
         });
     }
 
@@ -105,6 +112,9 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             }
 
             $this->client->refunds->create($params);
+
+            event(new RefundProcessed('stripe_paymentintents', $transactionId, $amount));
+
             return true;
         });
     }
@@ -123,12 +133,16 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
                 'metadata' => $request->metadata,
             ]);
 
-            return new PayoutResponse(
+            $response = new PayoutResponse(
                 success: true,
                 payoutId: $transfer->id,
                 status: 'completed',
                 raw: $transfer->toArray()
             );
+
+            event(new PayoutProcessed($response, 'stripe_paymentintents'));
+
+            return $response;
         });
     }
 
