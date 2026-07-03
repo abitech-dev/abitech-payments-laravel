@@ -27,7 +27,8 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         'DKK', 'PLN', 'CZK',
     ];
 
-    protected $client;
+    /** Cliente de Stripe inicializado en authenticate(). */
+    protected ?\Stripe\StripeClient $client = null;
 
     public function getGatewayName(): string
     {

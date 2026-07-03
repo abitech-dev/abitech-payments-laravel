@@ -82,7 +82,16 @@ trait VerifiesWebhookSignature
 
         $dataId = $request->input('data.id') ?? '';
 
-        [$ts, $hash] = explode(',', $signature);
+        $parts = explode(',', $signature);
+
+        if (count($parts) !== 2) {
+            throw new PaymentGatewayException(
+                "Formato de firma de Mercado Pago invalido.",
+                403
+            );
+        }
+
+        [$ts, $hash] = $parts;
         $ts = str_replace('ts=', '', $ts);
         $hash = str_replace('v1=', '', $hash);
 

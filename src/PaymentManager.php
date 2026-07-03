@@ -79,7 +79,7 @@ class PaymentManager extends Manager
         );
     }
 
-    public function createStripePaymentIntentsDriver(): StripePaymentIntentsDriver
+    public function createStripePaymentintentsDriver(): StripePaymentIntentsDriver
     {
         return new StripePaymentIntentsDriver(
             $this->resolveGatewayConfig('stripe')

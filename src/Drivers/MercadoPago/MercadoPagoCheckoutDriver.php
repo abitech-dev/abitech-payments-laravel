@@ -103,7 +103,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                     'failure' => $request->metadata['back_urls']['failure'] ?? null,
                     'pending' => $request->metadata['back_urls']['pending'] ?? null,
                 ],
-                'auto_return' => 'approved',
+                'auto_return' => $request->metadata['auto_return'] ?? 'approved',
                 'external_reference' => $request->idempotencyKey,
                 'notification_url' => $request->metadata['notification_url'] ?? null,
             ];
@@ -149,7 +149,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             $payment = $client->create([
                 'transaction_amount' => $request->amount,
                 'description' => $request->description,
-                'payment_method_id' => 'account_money',
+                'payment_method_id' => $request->metadata['payment_method_id'] ?? 'account_money',
                 'payer' => ['email' => $request->recipient],
             ]);
 
@@ -177,7 +177,9 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             $client = new PreApprovalClient();
 
             $startDate = new DateTime();
-            $endDate = (new DateTime())->modify('+2 years');
+            $endDate = isset($request->metadata['end_date'])
+                ? new DateTime($request->metadata['end_date'])
+                : (new DateTime())->modify('+2 years');
 
             $preapproval = $client->create([
                 'reason' => $request->planId,
@@ -290,7 +292,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
     protected function sendRefundRequest(string $transactionId, ?float $amount = null): true
     {
-        $accessToken = $this->config['access_token'];
+        $accessToken = $this->config['access_token'] ?? null;
         $url = "https://api.mercadopago.com/v1/payments/{$transactionId}/refunds";
 
         $ch = curl_init($url);

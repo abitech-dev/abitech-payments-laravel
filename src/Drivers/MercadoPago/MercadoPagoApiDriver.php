@@ -159,7 +159,7 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
             $payment = $client->create([
                 'transaction_amount' => $request->amount,
                 'description' => $request->description,
-                'payment_method_id' => 'account_money',
+                'payment_method_id' => $request->metadata['payment_method_id'] ?? 'account_money',
                 'payer' => ['email' => $request->recipient],
             ]);
 
@@ -178,7 +178,7 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
 
     protected function sendRefundRequest(string $transactionId, ?float $amount = null): true
     {
-        $accessToken = $this->config['access_token'];
+        $accessToken = $this->config['access_token'] ?? null;
         $url = "https://api.mercadopago.com/v1/payments/{$transactionId}/refunds";
 
         $ch = curl_init($url);

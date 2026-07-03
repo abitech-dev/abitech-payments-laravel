@@ -32,7 +32,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     ];
 
     /** Cliente de Stripe inicializado en authenticate(). */
-    protected $client;
+    protected ?\Stripe\StripeClient $client = null;
 
     public function getGatewayName(): string
     {
