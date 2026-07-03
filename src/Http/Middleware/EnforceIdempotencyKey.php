@@ -49,6 +49,12 @@ class EnforceIdempotencyKey
         }
 
         $config = config('abitech_payments.idempotency', []);
+        $enabled = $config['enabled'] ?? true;
+
+        if (!$enabled) {
+            return $next($request);
+        }
+
         $header = $config['header'] ?? 'X-Idempotency-Key';
         $minLength = $config['min_length'] ?? 16;
         $maxLength = $config['max_length'] ?? 255;

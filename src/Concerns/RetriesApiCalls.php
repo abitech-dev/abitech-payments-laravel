@@ -50,6 +50,23 @@ trait RetriesApiCalls
                 $lastException = $e;
                 $delayMs = (int) ($this->retryBaseDelayMs * pow($this->retryMultiplier, $i));
                 usleep($delayMs * 1000);
+            } catch (\Throwable $e) {
+                $httpCode = $e->getCode();
+
+                if ($httpCode >= 100 && $httpCode < 600) {
+                    $wrapped = new PaymentGatewayException($e->getMessage(), $httpCode, $e);
+
+                    if ($i === $attempts || !$this->isRetryable($wrapped)) {
+                        throw $wrapped;
+                    }
+
+                    $lastException = $wrapped;
+                    $delayMs = (int) ($this->retryBaseDelayMs * pow($this->retryMultiplier, $i));
+                    usleep($delayMs * 1000);
+                    continue;
+                }
+
+                throw $e;
             }
         }
 
