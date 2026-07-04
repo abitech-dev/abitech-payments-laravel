@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abitech\Payments\Drivers\Testing;
 
+use Abitech\Payments\Contracts\SubscriptionInterface;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
