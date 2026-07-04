@@ -15,6 +15,7 @@ class SubscriptionRequest
         public readonly ?float $amount = null,
         public readonly ?string $currency = null,
         public readonly ?int $trialDays = null,
+        public readonly ?string $idempotencyKey = null,
         public readonly array $metadata = []
     ) {}
 }

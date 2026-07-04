@@ -15,6 +15,7 @@ use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
+use Abitech\Payments\Events\PaymentInitiated;
 use Abitech\Payments\Events\PaymentSucceeded;
 use Abitech\Payments\Events\PayoutProcessed;
 use Abitech\Payments\Events\RefundProcessed;
@@ -80,7 +81,16 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         $this->authenticate();
         $this->throttle('stripe_checkout:purchase');
 
-        return $this->retry(function () use ($request) {
+        $successUrl = $request->successUrl ?? $request->metadata['success_url'] ?? null;
+        $cancelUrl = $request->cancelUrl ?? $request->metadata['cancel_url'] ?? null;
+
+        if (empty($successUrl) || empty($cancelUrl)) {
+            throw new PaymentGatewayException(
+                "Se requiere success_url y cancel_url para Stripe Checkout."
+            );
+        }
+
+        return $this->retry(function () use ($request, $successUrl, $cancelUrl) {
             $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
 
             $session = $this->client->checkout->sessions->create([
@@ -94,8 +104,8 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 ]],
                 'mode' => 'payment',
                 'payment_method_types' => $paymentMethodTypes,
-                'success_url' => $request->successUrl ?? $request->metadata['success_url'] ?? '',
-                'cancel_url' => $request->cancelUrl ?? $request->metadata['cancel_url'] ?? '',
+                'success_url' => $successUrl,
+                'cancel_url' => $cancelUrl,
                 'customer_email' => $request->email,
                 'metadata' => $request->idempotencyKey
                     ? ['idempotency_key' => $request->idempotencyKey]
@@ -110,7 +120,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 raw: $session->toArray()
             );
 
-            event(new PaymentSucceeded($response, 'stripe_checkout'));
+            event(new PaymentInitiated($response, 'stripe_checkout'));
 
             return $response;
         });
@@ -144,6 +154,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
 
     public function payout(PayoutRequest $request): PayoutResponse
     {
+        $this->validateCurrency($request->currency);
         $this->authenticate();
         $this->throttle('stripe_checkout:payout');
 

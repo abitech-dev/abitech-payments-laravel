@@ -83,7 +83,7 @@ trait HandlesMercadoPagoWebhook
 
             return new WebhookResult(
                 gateway: $this->getGatewayName(),
-                eventType: $type ?? 'payment',
+                eventType: $type,
                 transactionId: (string) $payment->id,
                 status: $this->mapMercadoPagoStatus($payment->status),
                 amount: (float) $payment->transaction_amount,

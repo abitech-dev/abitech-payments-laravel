@@ -94,7 +94,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
         $calls = $this->calls[$method] ?? [];
 
         if (empty($calls)) {
-            throw new \PHPUnit\Framework\AssertionFailedError(
+            throw new \RuntimeException(
                 "Se esperaba que '{$method}' fuera llamado, pero no se registro ninguna llamada."
             );
         }
@@ -106,7 +106,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
                 }
             }
 
-            throw new \PHPUnit\Framework\AssertionFailedError(
+            throw new \RuntimeException(
                 "Se encontro llamada a '{$method}' pero los argumentos no coinciden."
             );
         }
@@ -123,7 +123,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
         $actual = count($calls);
 
         if ($actual !== $count) {
-            throw new \PHPUnit\Framework\AssertionFailedError(
+            throw new \RuntimeException(
                 "Se esperaba que '{$method}' fuera llamado {$count} veces, pero se llamo {$actual}."
             );
         }
@@ -137,7 +137,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
     public function assertNotCalled(string $method): static
     {
         if (!empty($this->calls[$method])) {
-            throw new \PHPUnit\Framework\AssertionFailedError(
+            throw new \RuntimeException(
                 "No se esperaba que '{$method}' fuera llamado, pero se encontro al menos una llamada."
             );
         }
@@ -261,6 +261,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
     protected function guardThrow(): void
     {
         if ($this->shouldThrow) {
+            $this->shouldThrow = false;
             throw new PaymentGatewayException($this->throwMessage, $this->throwCode);
         }
     }

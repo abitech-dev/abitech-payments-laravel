@@ -18,7 +18,7 @@ class PaymentGatewayException extends Exception implements Responsable
      * alcanza el manejador global, respetando el código HTTP y el
      * mensaje original sin que la app host lo sobrescriba.
      */
-    public function toResponse($request): JsonResponse
+    public function toResponse(Request $request): JsonResponse
     {
         $status = $this->isValidHttpStatus($this->code) ? $this->code : 500;
 

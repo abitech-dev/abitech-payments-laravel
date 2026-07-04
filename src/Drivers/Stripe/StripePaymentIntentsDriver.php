@@ -12,6 +12,7 @@ use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\WebhookResult;
+use Abitech\Payments\Events\PaymentInitiated;
 use Abitech\Payments\Events\PaymentSucceeded;
 use Abitech\Payments\Events\PayoutProcessed;
 use Abitech\Payments\Events\RefundProcessed;
@@ -97,7 +98,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
                 raw: $intent->toArray()
             );
 
-            event(new PaymentSucceeded($response, 'stripe_paymentintents'));
+            event(new PaymentInitiated($response, 'stripe_paymentintents'));
 
             return $response;
         });
@@ -125,6 +126,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
 
     public function payout(PayoutRequest $request): PayoutResponse
     {
+        $this->validateCurrency($request->currency);
         $this->authenticate();
         $this->throttle('stripe_paymentintents:payout');
 

@@ -61,4 +61,29 @@ return [
             'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reintentos de API
+    |--------------------------------------------------------------------------
+    | Configuracion global de reintentos con backoff exponencial.
+    | Puede ser sobrescrito por gateway en la seccion 'gateways.<nombre>'.
+    */
+    'retry' => [
+        'max_attempts' => 3,
+        'base_delay_ms' => 300,
+        'multiplier' => 2.0,
+        'retryable_http_codes' => [429, 500, 502, 503, 504],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rate Limiting
+    |--------------------------------------------------------------------------
+    | Limite de peticiones por minuto a las APIs de las pasarelas.
+    */
+    'rate_limit' => [
+        'max_requests_per_minute' => 60,
+        'cache_prefix' => env('ABITECH_PAYMENTS_CACHE_PREFIX', 'abitech_payments'),
+    ],
 ];

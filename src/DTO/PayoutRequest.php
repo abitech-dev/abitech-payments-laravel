@@ -11,6 +11,7 @@ class PayoutRequest
         public readonly string $currency,
         public readonly string $recipient,
         public readonly string $description,
+        public readonly ?string $idempotencyKey = null,
         public readonly array $metadata = []
     ) {}
 }

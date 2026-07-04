@@ -14,4 +14,6 @@ interface ConfigResolverInterface
      * @return array<string, mixed>  Array asociativo con las credenciales
      */
     public function resolve(string $gateway, ?string $tenantId = null): array;
+
+    public function forget(string $gateway, ?string $tenantId = null): void;
 }

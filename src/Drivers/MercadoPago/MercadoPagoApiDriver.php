@@ -6,10 +6,12 @@ namespace Abitech\Payments\Drivers\MercadoPago;
 
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\HandlesMercadoPagoWebhook;
+use Abitech\Payments\Concerns\HandlesMercadoPagoRefund;
 use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
+use Abitech\Payments\Events\PaymentInitiated;
 use Abitech\Payments\Events\PaymentSucceeded;
 use Abitech\Payments\Events\PayoutProcessed;
 use Abitech\Payments\Events\RefundProcessed;
@@ -21,7 +23,7 @@ use Exception;
 
 class MercadoPagoApiDriver extends AbstractPaymentDriver
 {
-    use HandlesMercadoPagoWebhook;
+    use HandlesMercadoPagoWebhook, HandlesMercadoPagoRefund;
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 
@@ -128,7 +130,11 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 raw: json_decode(json_encode($payment), true)
             );
 
-            event(new PaymentSucceeded($response, 'mercadopago_api'));
+            if ($mappedStatus === 'completed') {
+                event(new PaymentSucceeded($response, 'mercadopago_api'));
+            } else {
+                event(new PaymentInitiated($response, 'mercadopago_api'));
+            }
 
             return $response;
         });
@@ -174,38 +180,5 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
 
             return $response;
         });
-    }
-
-    protected function sendRefundRequest(string $transactionId, ?float $amount = null): true
-    {
-        $accessToken = $this->config['access_token'] ?? null;
-        $url = "https://api.mercadopago.com/v1/payments/{$transactionId}/refunds";
-
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                "Authorization: Bearer {$accessToken}",
-            ],
-            CURLOPT_POSTFIELDS => json_encode(array_filter([
-                'amount' => $amount,
-            ])),
-        ]);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($response === false || $httpCode >= 400) {
-            $body = $response ? json_decode($response, true) : [];
-            throw new PaymentGatewayException(
-                "Error al reembolsar pago en Mercado Pago: " . ($body['message'] ?? 'Error de conexion'),
-                $httpCode ?: 500,
-            );
-        }
-
-        return true;
     }
 }

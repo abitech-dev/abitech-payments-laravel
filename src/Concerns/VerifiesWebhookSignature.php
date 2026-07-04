@@ -46,10 +46,9 @@ trait VerifiesWebhookSignature
             );
 
             return $event->toArray();
-        } catch (\Throwable $e) {
-            $class = get_class($e);
-
-            if ($class === 'Stripe\Exception\SignatureVerificationException' || $class === 'Stripe\Exception\UnexpectedValueException') {
+        } catch (\Exception $e) {
+            if ($e instanceof \Stripe\Exception\SignatureVerificationException
+                || $e instanceof \Stripe\Exception\UnexpectedValueException) {
                 throw new PaymentGatewayException(
                     "Firma de webhook de Stripe invalida: " . $e->getMessage(),
                     403,

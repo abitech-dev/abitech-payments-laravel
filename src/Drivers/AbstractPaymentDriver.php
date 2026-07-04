@@ -30,20 +30,16 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
     {
         $this->config = $config;
 
-        if (isset($config['max_retries'])) {
-            $this->maxRetries = (int) $config['max_retries'];
-        }
+        $globalRetry = config('abitech_payments.retry', []);
+        $globalRateLimit = config('abitech_payments.rate_limit', []);
 
-        if (isset($config['retry_base_delay_ms'])) {
-            $this->retryBaseDelayMs = (int) $config['retry_base_delay_ms'];
-        }
+        $this->maxRetries = (int) ($config['max_retries'] ?? $globalRetry['max_attempts'] ?? $this->maxRetries);
+        $this->retryBaseDelayMs = (int) ($config['retry_base_delay_ms'] ?? $globalRetry['base_delay_ms'] ?? $this->retryBaseDelayMs);
+        $this->retryMultiplier = (float) ($config['retry_multiplier'] ?? $globalRetry['multiplier'] ?? $this->retryMultiplier);
+        $this->maxRequestsPerMinute = (int) ($config['max_requests_per_minute'] ?? $globalRateLimit['max_requests_per_minute'] ?? $this->maxRequestsPerMinute);
 
-        if (isset($config['retry_multiplier'])) {
-            $this->retryMultiplier = (float) $config['retry_multiplier'];
-        }
-
-        if (isset($config['max_requests_per_minute'])) {
-            $this->maxRequestsPerMinute = (int) $config['max_requests_per_minute'];
+        if (!empty($globalRateLimit['cache_prefix'])) {
+            $this->limiterPrefix = (string) $globalRateLimit['cache_prefix'];
         }
     }
 
