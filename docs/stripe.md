@@ -34,6 +34,7 @@ $response = $manager->driver('stripe_checkout')->purchase(new PaymentRequest(
     cancelUrl: 'https://miapp.com/carrito',
     metadata: [
         'quantity' => 1,
+        'payment_method_types' => ['card', 'ideal', 'bancontact'],
     ],
 ));
 
@@ -61,6 +62,7 @@ $response = $manager->driver('stripe_paymentintents')->purchase(new PaymentReque
     idempotencyKey: request()->header('X-Idempotency-Key'),
     metadata: [
         'order_id' => '12345',
+        'payment_method_types' => ['card'],
     ],
 ));
 ```

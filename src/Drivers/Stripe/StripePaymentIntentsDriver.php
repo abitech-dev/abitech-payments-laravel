@@ -73,10 +73,13 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         $this->throttle('stripe_paymentintents:purchase');
 
         return $this->retry(function () use ($request) {
+            $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
+
             $intent = $this->client->paymentIntents->create([
                 'amount' => (int) round($request->amount * 100),
                 'currency' => strtolower($request->currency),
                 'payment_method' => $request->cardToken,
+                'payment_method_types' => $paymentMethodTypes,
                 'description' => $request->description,
                 'metadata' => $request->metadata,
                 'confirm' => true,

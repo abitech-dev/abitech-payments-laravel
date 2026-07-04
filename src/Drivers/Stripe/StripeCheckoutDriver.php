@@ -81,6 +81,8 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         $this->throttle('stripe_checkout:purchase');
 
         return $this->retry(function () use ($request) {
+            $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
+
             $session = $this->client->checkout->sessions->create([
                 'line_items' => [[
                     'price_data' => [
@@ -91,6 +93,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     'quantity' => $request->metadata['quantity'] ?? 1,
                 ]],
                 'mode' => 'payment',
+                'payment_method_types' => $paymentMethodTypes,
                 'success_url' => $request->successUrl ?? $request->metadata['success_url'] ?? '',
                 'cancel_url' => $request->cancelUrl ?? $request->metadata['cancel_url'] ?? '',
                 'customer_email' => $request->email,
