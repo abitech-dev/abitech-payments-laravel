@@ -30,12 +30,14 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
     public static function paymentMethodSchema(): array
     {
         return [
-            ['key' => 'installments', 'type' => 'number', 'label' => 'Cuotas máximas', 'min' => 1, 'max' => 12, 'default' => 12],
-            ['key' => 'excluded_payment_methods', 'type' => 'checkboxes', 'label' => 'Excluir marcas', 'default' => [], 'options' => [
+            ['key' => 'installments', 'type' => 'number', 'label' => 'Cuotas máximas (1 = sin cuotas)', 'min' => 1, 'max' => 12, 'default' => 1],
+            ['key' => 'excluded_payment_methods', 'type' => 'checkboxes', 'label' => 'Excluir métodos', 'default' => [], 'options' => [
                 ['id' => 'visa', 'label' => 'Visa'],
                 ['id' => 'master', 'label' => 'Mastercard'],
                 ['id' => 'amex', 'label' => 'American Express'],
                 ['id' => 'diners', 'label' => 'Diners Club'],
+                ['id' => 'yape', 'label' => 'Yape'],
+                ['id' => 'pagoefectivo_atm', 'label' => 'PagoEfectivo'],
             ]],
         ];
     }
