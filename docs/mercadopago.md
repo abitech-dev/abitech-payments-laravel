@@ -36,6 +36,10 @@ $response = $manager->driver('mercadopago_checkout')->purchase(new PaymentReques
     metadata: [
         'pending_url' => 'https://miapp.com/pendiente',
         'notification_url' => 'https://miapp.com/api/webhooks/mercadopago',
+        'payment_methods' => [
+            'installments' => 12,
+            'excluded_payment_types' => [['id' => 'ticket']],
+        ],
     ],
 ));
 

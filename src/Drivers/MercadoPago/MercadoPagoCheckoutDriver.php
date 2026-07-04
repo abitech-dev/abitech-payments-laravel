@@ -125,6 +125,11 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 $payload['notification_url'] = $notificationUrl;
             }
 
+            $paymentMethods = $request->metadata['payment_methods'] ?? null;
+            if ($paymentMethods) {
+                $payload['payment_methods'] = $paymentMethods;
+            }
+
             $preference = $client->create($payload);
 
             $response = new PaymentResponse(
