@@ -31,6 +31,17 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
     /** Cliente de Stripe inicializado en authenticate(). */
     protected ?\Stripe\StripeClient $client = null;
 
+    public static function paymentMethodSchema(): array
+    {
+        return [
+            ['key' => 'payment_method_types', 'type' => 'checkboxes', 'label' => 'Métodos habilitados', 'default' => ['card'], 'options' => [
+                ['id' => 'card', 'label' => 'Tarjeta crédito/débito'],
+                ['id' => 'ideal', 'label' => 'iDEAL'],
+                ['id' => 'bancontact', 'label' => 'Bancontact'],
+            ]],
+        ];
+    }
+
     public function getGatewayName(): string
     {
         return 'stripe_paymentintents';

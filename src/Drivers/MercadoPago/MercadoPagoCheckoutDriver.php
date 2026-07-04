@@ -33,6 +33,28 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 
+    public static function paymentMethodSchema(): array
+    {
+        return [
+            ['key' => 'installments', 'type' => 'number', 'label' => 'Cuotas máximas', 'min' => 1, 'max' => 12, 'default' => 12],
+            ['key' => 'excluded_payment_types', 'type' => 'checkboxes', 'label' => 'Excluir tipos de pago', 'default' => [], 'options' => [
+                ['id' => 'ticket', 'label' => 'Efectivo'],
+                ['id' => 'atm', 'label' => 'Cajero automático'],
+                ['id' => 'bank_transfer', 'label' => 'Transferencia bancaria'],
+                ['id' => 'prepaid_card', 'label' => 'Tarjeta prepago'],
+                ['id' => 'debit_card', 'label' => 'Tarjeta de débito'],
+            ]],
+            ['key' => 'excluded_payment_methods', 'type' => 'checkboxes', 'label' => 'Excluir marcas / billeteras', 'default' => [], 'options' => [
+                ['id' => 'visa', 'label' => 'Visa'],
+                ['id' => 'master', 'label' => 'Mastercard'],
+                ['id' => 'amex', 'label' => 'American Express'],
+                ['id' => 'diners', 'label' => 'Diners Club'],
+                ['id' => 'yape', 'label' => 'Yape'],
+                ['id' => 'pagoefectivo_atm', 'label' => 'PagoEfectivo'],
+            ]],
+        ];
+    }
+
     public function getGatewayName(): string
     {
         return 'mercadopago_checkout';

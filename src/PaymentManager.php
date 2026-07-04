@@ -106,4 +106,19 @@ class PaymentManager extends Manager
 
         return $this->config->get("abitech_payments.gateways.{$gateway}", []);
     }
+
+    /**
+     * Retorna los schemas de configuracion de metodos de pago de todos los drivers.
+     *
+     * @return array<string, array>  [driver_name => ['fields' => [...]]]
+     */
+    public static function getPaymentMethodSchemas(): array
+    {
+        return [
+            'mercadopago_checkout' => ['fields' => MercadoPagoCheckoutDriver::paymentMethodSchema()],
+            'mercadopago_api' => ['fields' => MercadoPagoApiDriver::paymentMethodSchema()],
+            'stripe_checkout' => ['fields' => StripeCheckoutDriver::paymentMethodSchema()],
+            'stripe_paymentintents' => ['fields' => StripePaymentIntentsDriver::paymentMethodSchema()],
+        ];
+    }
 }
