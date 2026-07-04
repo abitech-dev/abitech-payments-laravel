@@ -77,6 +77,19 @@ La verificacion de firma usa el encabezado `Stripe-Signature` y el secreto `STRI
 
 Eventos procesados: `checkout.session.completed`, `payment_intent.*`, `charge.refunded`.
 
+## Subscriptions
+
+El driver `stripe_checkout` soporta `SubscriptionInterface`:
+
+```php
+$response = $manager->driver('stripe_checkout')->createSubscription(new SubscriptionRequest(
+    planId: 'price_xxx',
+    email: 'cliente@email.com',
+    interval: 'month',
+    intervalCount: 1,
+));
+```
+
 ### Configurar endpoint en Stripe Dashboard
 
 1. Ir a https://dashboard.stripe.com/webhooks

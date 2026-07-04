@@ -155,11 +155,11 @@ class WebhookController extends Controller
 
             // Disparar evento de negocio (Host App)
             if ($result->status === 'completed') {
-                event(new Events\PaymentSucceeded($result, $gateway));
+                event(new \App\Events\OrderPaid($result->transactionId));
             }
         } catch (PaymentGatewayException $e) {
             // Actualizar log con error
-            log::error("Webhook {$gateway} invalido", ['error' => $e->getMessage()]);
+            Log::error("Webhook {$gateway} invalido", ['error' => $e->getMessage()]);
         }
 
         return response()->json(['status' => 'ok']);
@@ -234,6 +234,6 @@ public function test_checkout_rechaza_sin_idempotencia(): void
         'amount' => 100,
     ]);
 
-    $response->assertStatus(500);
+    $response->assertStatus(422);
 }
 ```

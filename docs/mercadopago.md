@@ -84,6 +84,21 @@ La verificacion de firma usa los encabezados `x-signature` y `x-request-id` envi
 
 El secreto de verificacion se define con `MERCADOPAGO_CLIENT_SECRET`.
 
+## Subscriptions
+
+El driver `mercadopago_checkout` soporta `SubscriptionInterface` (Preapproval API):
+
+```php
+$response = $manager->driver('mercadopago_checkout')->createSubscription(new SubscriptionRequest(
+    planId: 'plan-mensual',
+    email: 'cliente@email.com',
+    amount: 49.90,
+    currency: 'PEN',
+    interval: 'month',
+    intervalCount: 1,
+));
+```
+
 ## SDK
 
 Documentacion oficial del SDK: https://github.com/mercadopago/dx-php
