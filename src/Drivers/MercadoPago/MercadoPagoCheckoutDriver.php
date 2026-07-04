@@ -110,10 +110,20 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 'items' => $items,
                 'payer' => ['email' => $request->email],
                 'back_urls' => $backUrlsPayload,
-                'auto_return' => $request->metadata['auto_return'] ?? 'approved',
-                'external_reference' => $request->idempotencyKey,
-                'notification_url' => $request->metadata['notification_url'] ?? null,
             ];
+
+            if ($request->idempotencyKey) {
+                $payload['external_reference'] = $request->idempotencyKey;
+            }
+
+            if ($successUrl && str_starts_with($successUrl, 'https://')) {
+                $payload['auto_return'] = $request->metadata['auto_return'] ?? 'approved';
+            }
+
+            $notificationUrl = $request->metadata['notification_url'] ?? null;
+            if ($notificationUrl) {
+                $payload['notification_url'] = $notificationUrl;
+            }
 
             $preference = $client->create($payload);
 
