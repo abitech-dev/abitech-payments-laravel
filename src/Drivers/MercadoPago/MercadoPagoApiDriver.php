@@ -36,6 +36,8 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 ['id' => 'master', 'label' => 'Mastercard'],
                 ['id' => 'amex', 'label' => 'American Express'],
                 ['id' => 'diners', 'label' => 'Diners Club'],
+                ['id' => 'debvisa', 'label' => 'Visa Débito'],
+                ['id' => 'debmaster', 'label' => 'Mastercard Débito'],
                 ['id' => 'yape', 'label' => 'Yape'],
                 ['id' => 'pagoefectivo_atm', 'label' => 'PagoEfectivo'],
             ]],
