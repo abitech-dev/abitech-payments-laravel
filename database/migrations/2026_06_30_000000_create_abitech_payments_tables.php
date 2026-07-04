@@ -48,7 +48,7 @@ return new class extends Migration
             }
             $table->string('name', 100)->comment('Nombre de pasarela');
             $table->boolean('is_active')->default(true)->comment('Estado activo registro');
-            $table->json('credentials')->nullable()->comment('Credenciales cifradas pasarela');
+            $table->text('credentials')->nullable()->comment('Credenciales cifradas pasarela');
             $table->softDeletes()->comment('Fecha de eliminacion');
             $table->timestamps();
         });
@@ -67,6 +67,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true)->comment('Estado activo registro');
             $table->decimal('min_amount', 12, 2)->default(0.00)->comment('Monto minimo admitido');
             $table->decimal('max_amount', 12, 2)->default(99999999.99)->comment('Monto maximo admitido');
+            $table->json('options')->nullable()->comment('Configuracion especifica del metodo (payment_methods, cuotas, etc.)');
             $table->softDeletes()->comment('Fecha de eliminacion');
             $table->timestamps();
 
