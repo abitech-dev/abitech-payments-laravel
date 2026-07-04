@@ -129,7 +129,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
             $paymentMethods = $request->metadata['payment_methods'] ?? null;
             if ($paymentMethods) {
-                $payload['payment_methods'] = $paymentMethods;
+                $payload['payment_methods'] = $this->normalizePaymentMethods($paymentMethods);
             }
 
             $preference = $client->create($payload);
@@ -312,5 +312,18 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             'year' => 'years',
             default => 'months',
         };
+    }
+
+    protected function normalizePaymentMethods(array $paymentMethods): array
+    {
+        foreach (['excluded_payment_methods', 'excluded_payment_types'] as $key) {
+            if (isset($paymentMethods[$key]) && is_array($paymentMethods[$key])) {
+                $paymentMethods[$key] = array_map(function ($item) {
+                    return is_string($item) ? ['id' => $item] : $item;
+                }, $paymentMethods[$key]);
+            }
+        }
+
+        return $paymentMethods;
     }
 }
