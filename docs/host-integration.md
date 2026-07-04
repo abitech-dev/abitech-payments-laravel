@@ -92,10 +92,8 @@ class BillingController extends Controller
             email: $request->user()->email,
             description: $request->input('description'),
             idempotencyKey: $request->header('X-Idempotency-Key'),
-            metadata: [
-                'success_url' => route('billing.success'),
-                'cancel_url'  => route('billing.cart'),
-            ],
+            successUrl: route('billing.success'),
+            cancelUrl: route('billing.cart'),
         );
 
         $driver = $request->input('gateway', 'mercadopago_checkout');

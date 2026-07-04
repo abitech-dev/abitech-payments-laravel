@@ -31,12 +31,10 @@ $response = $manager->driver('mercadopago_checkout')->purchase(new PaymentReques
     email: 'cliente@email.com',
     description: 'Producto X',
     idempotencyKey: 'uuid-unico',
+    successUrl: 'https://miapp.com/gracias',
+    cancelUrl: 'https://miapp.com/error',
     metadata: [
-        'back_urls' => [
-            'success' => 'https://miapp.com/gracias',
-            'failure' => 'https://miapp.com/error',
-            'pending' => 'https://miapp.com/pendiente',
-        ],
+        'pending_url' => 'https://miapp.com/pendiente',
         'notification_url' => 'https://miapp.com/api/webhooks/mercadopago',
     ],
 ));

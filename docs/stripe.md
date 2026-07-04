@@ -30,10 +30,10 @@ $response = $manager->driver('stripe_checkout')->purchase(new PaymentRequest(
     email: 'cliente@email.com',
     description: 'Suscripcion mensual',
     idempotencyKey: 'uuid-unico',
+    successUrl: 'https://miapp.com/gracias?session_id={CHECKOUT_SESSION_ID}',
+    cancelUrl: 'https://miapp.com/carrito',
     metadata: [
-        'success_url' => 'https://miapp.com/gracias?session_id={CHECKOUT_SESSION_ID}',
-        'cancel_url'  => 'https://miapp.com/carrito',
-        'quantity'    => 1,
+        'quantity' => 1,
     ],
 ));
 

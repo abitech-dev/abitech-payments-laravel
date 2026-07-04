@@ -53,12 +53,22 @@ trait RetriesApiCalls
             } catch (\Throwable $e) {
                 $httpCode = $e->getCode();
 
-                if (method_exists($e, 'getHttpStatus')) {
+                if (method_exists($e, 'getStatusCode')) {
+                    $httpCode = $e->getStatusCode();
+                } elseif (method_exists($e, 'getHttpStatus')) {
                     $httpCode = $e->getHttpStatus();
                 }
 
+                $errorDetail = $e->getMessage();
+                if (method_exists($e, 'getApiResponse')) {
+                    $responseContent = $e->getApiResponse()->getContent();
+                    if (!empty($responseContent['message'])) {
+                        $errorDetail = $responseContent['message'];
+                    }
+                }
+
                 if ($httpCode >= 100 && $httpCode < 600) {
-                    $wrapped = new PaymentGatewayException($e->getMessage(), $httpCode, $e);
+                    $wrapped = new PaymentGatewayException($errorDetail, $httpCode, $e);
 
                     if ($i === $attempts || !$this->isRetryable($wrapped)) {
                         throw $wrapped;
@@ -70,7 +80,7 @@ trait RetriesApiCalls
                     continue;
                 }
 
-                throw new PaymentGatewayException($e->getMessage(), 500, $e);
+                throw new PaymentGatewayException($errorDetail, 500, $e);
             }
         }
 

@@ -91,8 +91,8 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     'quantity' => $request->metadata['quantity'] ?? 1,
                 ]],
                 'mode' => 'payment',
-                'success_url' => $request->metadata['success_url'] ?? '',
-                'cancel_url' => $request->metadata['cancel_url'] ?? '',
+                'success_url' => $request->successUrl ?? $request->metadata['success_url'] ?? '',
+                'cancel_url' => $request->cancelUrl ?? $request->metadata['cancel_url'] ?? '',
                 'customer_email' => $request->email,
                 'metadata' => $request->idempotencyKey
                     ? ['idempotency_key' => $request->idempotencyKey]

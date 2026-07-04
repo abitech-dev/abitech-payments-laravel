@@ -13,6 +13,8 @@ class PaymentRequest
         public readonly string $description,
         public readonly ?string $cardToken = null,
         public readonly ?string $idempotencyKey = null,
+        public readonly ?string $successUrl = null,
+        public readonly ?string $cancelUrl = null,
         public readonly array $metadata = []
     ) {}
 }

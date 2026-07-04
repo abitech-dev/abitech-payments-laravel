@@ -95,13 +95,18 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 ]
             ];
 
+            $backUrls = $request->metadata['back_urls'] ?? [];
+            $successUrl = $request->successUrl ?? $backUrls['success'] ?? $request->metadata['success_url'] ?? null;
+            $cancelUrl = $request->cancelUrl ?? $backUrls['failure'] ?? $request->metadata['cancel_url'] ?? null;
+            $pendingUrl = $backUrls['pending'] ?? $request->metadata['pending_url'] ?? null;
+
             $payload = [
                 'items' => $items,
                 'payer' => ['email' => $request->email],
                 'back_urls' => [
-                    'success' => $request->metadata['back_urls']['success'] ?? null,
-                    'failure' => $request->metadata['back_urls']['failure'] ?? null,
-                    'pending' => $request->metadata['back_urls']['pending'] ?? null,
+                    'success' => $successUrl,
+                    'failure' => $cancelUrl,
+                    'pending' => $pendingUrl,
                 ],
                 'auto_return' => $request->metadata['auto_return'] ?? 'approved',
                 'external_reference' => $request->idempotencyKey,
