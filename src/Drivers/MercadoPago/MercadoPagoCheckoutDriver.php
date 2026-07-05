@@ -111,20 +111,9 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         return $this->retry(function () use ($request) {
             $client = new PreferenceClient();
 
-            $items = [
-                [
-                    'id' => $request->idempotencyKey ?? uniqid('', true),
-                    'title' => $request->description,
-                    'quantity' => 1,
-                    'unit_price' => $request->amount,
-                    'currency_id' => strtoupper($request->currency),
-                ]
-            ];
+            $items = $this->buildItems($request);
 
             $backUrls = $request->metadata['back_urls'] ?? [];
-            $successUrl = $request->successUrl ?? $backUrls['success'] ?? $request->metadata['success_url'] ?? null;
-            $cancelUrl = $request->cancelUrl ?? $backUrls['failure'] ?? $request->metadata['cancel_url'] ?? null;
-            $pendingUrl = $backUrls['pending'] ?? $request->metadata['pending_url'] ?? null;
 
             $backUrlsPayload = array_filter([
                 'success' => $successUrl,
@@ -336,6 +325,27 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             'year' => 'years',
             default => 'months',
         };
+    }
+
+    protected function buildItems(PaymentRequest $request): array
+    {
+        if (!empty($request->metadata['items'])) {
+            return array_map(fn ($item, $i) => [
+                'id' => $request->idempotencyKey . '-' . ($i + 1) ?? uniqid('', true),
+                'title' => $item['name'] ?? $item['description'] ?? 'Producto',
+                'quantity' => 1,
+                'unit_price' => (float) ($item['price'] ?? 0),
+                'currency_id' => strtoupper($request->currency),
+            ], $request->metadata['items'], array_keys($request->metadata['items']));
+        }
+
+        return [[
+            'id' => $request->idempotencyKey ?? uniqid('', true),
+            'title' => $request->description,
+            'quantity' => 1,
+            'unit_price' => $request->amount,
+            'currency_id' => strtoupper($request->currency),
+        ]];
     }
 
     protected function normalizePaymentMethods(array $paymentMethods): array
