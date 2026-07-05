@@ -48,7 +48,7 @@ trait HandlesMercadoPagoWebhook
     {
         $this->authenticate();
 
-        $secret = $this->config['client_secret'] ?? null;
+        $secret = $this->config['webhook_secret'] ?? $this->config['client_secret'] ?? null;
 
         if ($secret) {
             $this->verifyMercadoPagoSignature($request, $secret);
