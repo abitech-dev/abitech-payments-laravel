@@ -131,7 +131,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             ];
 
             if ($request->idempotencyKey) {
-                $payload['external_reference'] = $request->idempotencyKey;
+                $payload['external_reference'] = $request->metadata['session_id'] ?? $request->idempotencyKey;
             }
 
             if ($successUrl && str_starts_with($successUrl, 'https://')) {
