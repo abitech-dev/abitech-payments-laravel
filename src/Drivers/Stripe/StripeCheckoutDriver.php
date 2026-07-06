@@ -224,11 +224,13 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             $status = 'completed';
             $amount = isset($object['amount_total']) ? (float) $object['amount_total'] / 100 : null;
             $currency = $object['currency'] ?? null;
+            $event = $this->enrichStripeEvent($event, $object['payment_intent'] ?? null);
         } elseif ($type === 'payment_intent.succeeded') {
             $transactionId = $object['payment_details']['order_reference'] ?? $object['id'] ?? null;
             $status = 'completed';
             $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : null;
             $currency = $object['currency'] ?? null;
+            $event = $this->enrichStripeEvent($event, $object['id'] ?? null);
         } elseif (in_array($type, ['checkout.session.async_payment_failed', 'payment_intent.payment_failed', 'payment_intent.canceled'], true)) {
             $transactionId = $object['payment_details']['order_reference'] ?? $object['id'] ?? null;
             $status = 'failed';
@@ -263,6 +265,46 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             'payment_intent.canceled',
             'charge.refunded',
         ], true);
+    }
+
+    protected function enrichStripeEvent(array $event, ?string $paymentIntentId): array
+    {
+        if (! $paymentIntentId) {
+            return $event;
+        }
+
+        try {
+            $pi = $this->client->paymentIntents->retrieve($paymentIntentId);
+            $pmId = $pi->payment_method ?? $pi->latest_charge?->payment_method_details->type ?? null;
+
+            if ($pi->latest_charge && $pi->latest_charge->payment_method_details?->card) {
+                $card = $pi->latest_charge->payment_method_details->card;
+                $event['payment_method_id'] = $card->brand ?? 'card';
+                $event['card'] = [
+                    'issuer' => ['name' => $card->brand ?? null],
+                    'last_four_digits' => $card->last4 ?? null,
+                ];
+                $event['installments'] = null;
+            } elseif ($pmId && str_starts_with($pmId, 'pm_')) {
+                $pm = $this->client->paymentMethods->retrieve($pmId);
+                $event['payment_method_id'] = $pm->card->brand ?? $pm->type ?? 'card';
+                $event['card'] = [
+                    'issuer' => ['name' => $pm->card->brand ?? null],
+                    'last_four_digits' => $pm->card->last4 ?? null,
+                ];
+                $event['installments'] = null;
+            } else {
+                $event['payment_method_id'] = $event['data']['object']['payment_method_types'][0] ?? null;
+                $event['card'] = ['issuer' => ['name' => null], 'last_four_digits' => null];
+                $event['installments'] = null;
+            }
+        } catch (\Exception) {
+            $event['payment_method_id'] = $event['data']['object']['payment_method_types'][0] ?? null;
+            $event['card'] = ['issuer' => ['name' => null], 'last_four_digits' => null];
+            $event['installments'] = null;
+        }
+
+        return $event;
     }
 
     /**
