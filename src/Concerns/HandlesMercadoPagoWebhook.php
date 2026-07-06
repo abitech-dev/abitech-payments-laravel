@@ -91,9 +91,13 @@ trait HandlesMercadoPagoWebhook
                 raw: json_decode(json_encode($payment), true)
             );
         } catch (MPApiException $e) {
+            $statusCode = $e->getStatusCode();
+            $body = json_encode($e->getApiResponse()->getContent());
+            $detail = "HTTP {$statusCode}: {$body}";
+
             throw new PaymentGatewayException(
-                "Error de Mercado Pago al obtener el detalle del pago: " . $e->getMessage(),
-                $e->getStatusCode() ?: 500,
+                "Error de Mercado Pago al obtener el detalle del pago: " . $detail,
+                $statusCode ?: 500,
                 $e
             );
         } catch (Exception $e) {
