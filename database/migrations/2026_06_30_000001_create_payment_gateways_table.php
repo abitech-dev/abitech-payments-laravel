@@ -26,6 +26,7 @@ return new class extends Migration
                 $table->bigIncrements('id');
             }
             $table->string('name', 100)->comment('Nombre de pasarela');
+            $table->string('code', 50)->nullable()->unique()->comment('Codigo referencia: mercadopago, stripe');
             $table->boolean('is_active')->default(true)->comment('Estado activo registro');
             $table->text('credentials')->nullable()->comment('Credenciales cifradas pasarela');
             $table->softDeletes();

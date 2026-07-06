@@ -29,6 +29,9 @@ return new class extends Migration
             }
             $table->string('name', 100)->comment('Nombre de modalidad');
             $table->string('payment_type', 50)->comment('Tipo de pago');
+            $table->string('code', 50)->nullable()->comment('Codigo corto: mp_checkout, stripe_checkout');
+            $table->string('label', 100)->nullable()->comment('Nombre publico: Mercado Pago, Stripe');
+            $table->string('description', 255)->nullable()->comment('Descripcion publica');
             $table->boolean('is_active')->default(true)->comment('Estado activo registro');
             $table->decimal('min_amount', 12, 2)->default(0.00)->comment('Monto minimo admitido');
             $table->decimal('max_amount', 12, 2)->default(99999999.99)->comment('Monto maximo admitido');
