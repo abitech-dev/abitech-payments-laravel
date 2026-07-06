@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('name', 100)->comment('Nombre de moneda');
             $table->string('symbol', 10)->comment('Simbolo de moneda');
             $table->integer('decimals')->default(2)->comment('Decimales de moneda');
+            $table->decimal('exchange_rate', 15, 6)->nullable()->comment('Tasa de cambio vs moneda base (USD)');
             $table->boolean('is_active')->default(true)->comment('Estado activo registro');
             $table->softDeletes();
             $table->timestamps();
