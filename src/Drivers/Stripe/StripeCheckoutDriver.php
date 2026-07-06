@@ -217,20 +217,27 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         $amount = null;
         $currency = null;
 
-        if ($type === 'checkout.session.completed') {
+        if (! $this->isRelevantEvent($type)) {
+            $status = 'ignored';
+        } elseif (in_array($type, ['checkout.session.completed', 'checkout.session.async_payment_succeeded'], true)) {
             $transactionId = $object['id'] ?? null;
             $status = 'completed';
             $amount = isset($object['amount_total']) ? (float) $object['amount_total'] / 100 : null;
+            $currency = $object['currency'] ?? null;
+        } elseif ($type === 'payment_intent.succeeded') {
+            $transactionId = $object['payment_details']['order_reference'] ?? $object['id'] ?? null;
+            $status = 'completed';
+            $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : null;
+            $currency = $object['currency'] ?? null;
+        } elseif (in_array($type, ['checkout.session.async_payment_failed', 'payment_intent.payment_failed', 'payment_intent.canceled'], true)) {
+            $transactionId = $object['payment_details']['order_reference'] ?? $object['id'] ?? null;
+            $status = 'failed';
+            $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : (isset($object['amount_total']) ? (float) $object['amount_total'] / 100 : null);
             $currency = $object['currency'] ?? null;
         } elseif ($type === 'charge.refunded') {
             $transactionId = $object['payment_intent'] ?? null;
             $status = 'refunded';
             $amount = isset($object['amount_refunded']) ? (float) $object['amount_refunded'] / 100 : null;
-            $currency = $object['currency'] ?? null;
-        } elseif (str_starts_with($type, 'payment_intent.')) {
-            $transactionId = $object['id'] ?? null;
-            $status = $this->mapPaymentIntentStatus($object['status'] ?? 'pending');
-            $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : null;
             $currency = $object['currency'] ?? null;
         }
 
@@ -243,6 +250,19 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             currency: $currency,
             raw: $event
         );
+    }
+
+    protected function isRelevantEvent(string $type): bool
+    {
+        return in_array($type, [
+            'checkout.session.completed',
+            'checkout.session.async_payment_succeeded',
+            'checkout.session.async_payment_failed',
+            'payment_intent.succeeded',
+            'payment_intent.payment_failed',
+            'payment_intent.canceled',
+            'charge.refunded',
+        ], true);
     }
 
     /**
