@@ -103,8 +103,6 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             );
         }
 
-        $cancelUrl = $this->stripStatusParam($cancelUrl);
-
         return $this->retry(function () use ($request, $successUrl, $cancelUrl) {
             $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
 
@@ -265,22 +263,6 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             'payment_intent.canceled',
             'charge.refunded',
         ], true);
-    }
-
-    /**
-     * Elimina parametros de estado (status=*) de la URL de cancelacion.
-     * En Stripe, el boton "Regresar" no es un fallo real, es el usuario
-     * cambiando de opinion. Devolvemos la URL base sin query params.
-     */
-    protected function stripStatusParam(string $url): string
-    {
-        $parsed = parse_url($url);
-        $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
-
-        return ($parsed['scheme'] ?? 'https') . '://'
-            . ($parsed['host'] ?? '')
-            . $port
-            . ($parsed['path'] ?? '/');
     }
 
     /**
