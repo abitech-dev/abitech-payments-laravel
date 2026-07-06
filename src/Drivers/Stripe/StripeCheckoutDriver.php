@@ -120,6 +120,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 'success_url' => $successUrl,
                 'cancel_url' => $cancelUrl,
                 'customer_email' => $request->email,
+                'expand' => ['payment_intent.latest_charge'],
                 'metadata' => $request->idempotencyKey
                     ? ['idempotency_key' => $request->idempotencyKey]
                     : [],
@@ -278,51 +279,49 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         }
 
         try {
-            $piId = null;
-
             if (str_starts_with($type, 'checkout.session')) {
-                $piId = $object['payment_intent'] ?? null;
-            } elseif ($type === 'payment_intent.succeeded') {
-                $piId = $object['id'] ?? null;
+                return $this->readCardFromExpandedSession($object);
             }
 
-            if (! $piId) {
-                $pmTypes = $object['payment_method_types'] ?? [];
-
-                return ['payment_method' => $pmTypes[0] ?? null];
-            }
-
-            $pi = $this->client->paymentIntents->retrieve($piId);
-
-            if ($pi->latest_charge && $pi->latest_charge->payment_method_details?->card) {
-                $c = $pi->latest_charge->payment_method_details->card;
-
-                return [
-                    'payment_method' => $c->brand ?? 'card',
-                    'brand' => $c->brand ?? null,
-                    'last_four' => $c->last4 ?? null,
-                ];
-            }
-
-            $pmId = $pi->payment_method ?? null;
-            if ($pmId && str_starts_with($pmId, 'pm_')) {
-                $pm = $this->client->paymentMethods->retrieve($pmId);
-
-                return [
-                    'payment_method' => $pm->card->brand ?? $pm->type ?? 'card',
-                    'brand' => $pm->card->brand ?? null,
-                    'last_four' => $pm->card->last4 ?? null,
-                ];
-            }
-
-            $pmTypes = $object['payment_method_types'] ?? [];
-
-            return ['payment_method' => $pmTypes[0] ?? null];
+            return $this->readCardFromPaymentIntent($object['id'] ?? null);
         } catch (\Exception) {
-            $pmTypes = $object['payment_method_types'] ?? [];
-
-            return ['payment_method' => $pmTypes[0] ?? null];
+            return ['payment_method' => ($object['payment_method_types'][0] ?? null)];
         }
+    }
+
+    protected function readCardFromExpandedSession(array $session): array
+    {
+        $card = $session['payment_intent']['latest_charge']['payment_method_details']['card'] ?? null;
+
+        if ($card) {
+            return [
+                'payment_method' => $card['brand'] ?? 'card',
+                'brand' => $card['brand'] ?? null,
+                'last_four' => $card['last4'] ?? null,
+            ];
+        }
+
+        return ['payment_method' => ($session['payment_method_types'][0] ?? null)];
+    }
+
+    protected function readCardFromPaymentIntent(?string $piId): array
+    {
+        if (! $piId) {
+            return [];
+        }
+
+        $pi = $this->client->paymentIntents->retrieve($piId);
+        $card = $pi->latest_charge?->payment_method_details?->card;
+
+        if ($card) {
+            return [
+                'payment_method' => $card->brand ?? 'card',
+                'brand' => $card->brand ?? null,
+                'last_four' => $card->last4 ?? null,
+            ];
+        }
+
+        return [];
     }
 
     /**
