@@ -138,7 +138,9 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 $payload['auto_return'] = $request->metadata['auto_return'] ?? 'approved';
             }
 
-            $notificationUrl = $request->metadata['notification_url'] ?? null;
+            $notificationUrl = $request->metadata['notification_url']
+                ?? $this->config['notification_url']
+                ?? null;
             if ($notificationUrl) {
                 $payload['notification_url'] = $notificationUrl;
             }
