@@ -120,6 +120,8 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 'success_url' => $successUrl,
                 'cancel_url' => $cancelUrl,
                 'customer_email' => $request->email,
+                'client_reference_id' => $request->metadata['session_id'] ?? $request->idempotencyKey,
+                'customer_details' => $this->buildStripeCustomerDetails($request),
                 'expand' => ['payment_intent.latest_charge'],
                 'metadata' => $request->idempotencyKey
                     ? ['idempotency_key' => $request->idempotencyKey]
@@ -322,6 +324,22 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         }
 
         return [];
+    }
+
+    protected function buildStripeCustomerDetails(PaymentRequest $request): array
+    {
+        $details = ['email' => $request->email];
+
+        $name = trim(($request->payerName ?? '') . ' ' . ($request->payerSurname ?? ''));
+        if ($name !== '') {
+            $details['name'] = $name;
+        }
+
+        if ($request->payerPhone) {
+            $details['phone'] = $request->payerPhone;
+        }
+
+        return $details;
     }
 
     /**

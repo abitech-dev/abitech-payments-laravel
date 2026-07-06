@@ -126,7 +126,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
             $payload = [
                 'items' => $items,
-                'payer' => ['email' => $request->email],
+                'payer' => $this->buildMercadoPagoPayer($request),
                 'back_urls' => $backUrlsPayload,
             ];
 
@@ -351,6 +351,32 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             'unit_price' => $request->amount,
             'currency_id' => strtoupper($request->currency),
         ]];
+    }
+
+    protected function buildMercadoPagoPayer(PaymentRequest $request): array
+    {
+        $payer = ['email' => $request->email];
+
+        if ($request->payerName) {
+            $payer['name'] = $request->payerName;
+        }
+
+        if ($request->payerSurname) {
+            $payer['surname'] = $request->payerSurname;
+        }
+
+        if ($request->payerDocumentType && $request->payerDocumentNumber) {
+            $payer['identification'] = [
+                'type' => $request->payerDocumentType,
+                'number' => $request->payerDocumentNumber,
+            ];
+        }
+
+        if ($request->payerPhone) {
+            $payer['phone'] = ['number' => $request->payerPhone];
+        }
+
+        return $payer;
     }
 
     protected function normalizePaymentMethods(array $paymentMethods): array

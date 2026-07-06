@@ -15,6 +15,11 @@ class PaymentRequest
         public readonly ?string $idempotencyKey = null,
         public readonly ?string $successUrl = null,
         public readonly ?string $cancelUrl = null,
-        public readonly array $metadata = []
+        public readonly ?string $payerName = null,
+        public readonly ?string $payerSurname = null,
+        public readonly ?string $payerDocumentType = null,
+        public readonly ?string $payerDocumentNumber = null,
+        public readonly ?string $payerPhone = null,
+        public readonly array $metadata = [],
     ) {}
 }
