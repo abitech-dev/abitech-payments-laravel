@@ -192,6 +192,12 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             $status = 'pending';
         }
 
+        $card = ['payment_method' => null, 'brand' => null, 'last_four' => null];
+
+        if ($status === 'completed' && $transactionId) {
+            $card = $this->extractCardDetails($transactionId);
+        }
+
         return new WebhookResult(
             gateway: 'stripe',
             eventType: $type,
@@ -199,6 +205,10 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             status: $status,
             amount: $amount,
             currency: $currency,
+            paymentMethod: $card['payment_method'] ?? null,
+            cardBrand: $card['brand'] ?? null,
+            cardLastFour: $card['last_four'] ?? null,
+            installments: null,
             raw: $event
         );
     }
@@ -215,5 +225,37 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             'canceled' => 'failed',
             default => 'pending',
         };
+    }
+
+    protected function extractCardDetails(string $paymentIntentId): array
+    {
+        try {
+            $pi = $this->client->paymentIntents->retrieve($paymentIntentId);
+
+            if ($pi->latest_charge && $pi->latest_charge->payment_method_details?->card) {
+                $c = $pi->latest_charge->payment_method_details->card;
+
+                return [
+                    'payment_method' => $c->brand ?? 'card',
+                    'brand' => $c->brand ?? null,
+                    'last_four' => $c->last4 ?? null,
+                ];
+            }
+
+            $pmId = $pi->payment_method ?? null;
+            if ($pmId && str_starts_with($pmId, 'pm_')) {
+                $pm = $this->client->paymentMethods->retrieve($pmId);
+
+                return [
+                    'payment_method' => $pm->card->brand ?? $pm->type ?? 'card',
+                    'brand' => $pm->card->brand ?? null,
+                    'last_four' => $pm->card->last4 ?? null,
+                ];
+            }
+
+            return [];
+        } catch (\Exception) {
+            return [];
+        }
     }
 }

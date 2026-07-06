@@ -88,6 +88,10 @@ trait HandlesMercadoPagoWebhook
                 status: $this->mapMercadoPagoStatus($payment->status),
                 amount: (float) $payment->transaction_amount,
                 currency: $payment->currency_id,
+                paymentMethod: $payment->payment_method_id ?? null,
+                cardBrand: $payment->card->issuer->name ?? null,
+                cardLastFour: $payment->card->last_four_digits ?? null,
+                installments: $payment->installments ?? null,
                 raw: json_decode(json_encode($payment), true)
             );
         } catch (MPApiException $e) {
