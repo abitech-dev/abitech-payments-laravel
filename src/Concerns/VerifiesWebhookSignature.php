@@ -32,7 +32,8 @@ trait VerifiesWebhookSignature
 
         if (empty($signature)) {
             throw new PaymentGatewayException(
-                "Falta el encabezado Stripe-Signature en la notificacion."
+                "Falta el encabezado Stripe-Signature en la notificacion.",
+                403
             );
         }
 
@@ -75,7 +76,8 @@ trait VerifiesWebhookSignature
 
         if (empty($signature) || empty($requestId)) {
             throw new PaymentGatewayException(
-                "Faltan los encabezados de verificacion de Mercado Pago (x-signature, x-request-id)."
+                "Faltan los encabezados de verificacion de Mercado Pago (x-signature, x-request-id).",
+                403
             );
         }
 

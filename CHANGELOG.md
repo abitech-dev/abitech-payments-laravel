@@ -4,6 +4,14 @@ Todas las versiones notables de `abitech/payments-laravel` estan documentadas aq
 
 El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Corregido
+
+- Webhooks: la ausencia de encabezados de firma (`x-signature`/`x-request-id`
+  de Mercado Pago, `Stripe-Signature`) lanza `PaymentGatewayException` 403;
+  antes salía con código 0 y la app host respondía 500, invitando a reintentar.
+
 ## [1.0.0] - 2026-07-03
 
 ### Agregado
