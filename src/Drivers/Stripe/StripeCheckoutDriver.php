@@ -77,6 +77,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     public function health(): bool
     {
         $this->authenticate();
+        $this->throttle('stripe_checkout:health');
 
         return $this->retry(function () {
             $this->client->balance->retrieve();
@@ -214,6 +215,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         }
 
         $event = $this->verifyStripeSignature($request, $webhookSecret);
+        $this->authenticate();
 
         $type = $event['type'] ?? 'unknown';
         $object = $event['data']['object'] ?? [];
@@ -315,7 +317,8 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             return [];
         }
 
-        $pi = $this->client->paymentIntents->retrieve($piId);
+        $this->throttle('stripe_checkout:webhook');
+        $pi = $this->retry(fn () => $this->client->paymentIntents->retrieve($piId));
         $card = $pi->latest_charge?->payment_method_details?->card;
 
         if ($card) {

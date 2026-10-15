@@ -65,6 +65,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
     public function health(): bool
     {
         $this->authenticate();
+        $this->throttle('stripe_paymentintents:health');
 
         return $this->retry(function () {
             $this->client->balance->retrieve();
@@ -178,6 +179,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         }
 
         $event = $this->verifyStripeSignature($request, $webhookSecret);
+        $this->authenticate();
 
         $type = $event['type'] ?? 'unknown';
         $object = $event['data']['object'] ?? [];
@@ -234,7 +236,8 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
     protected function extractCardDetails(string $paymentIntentId): array
     {
         try {
-            $pi = $this->client->paymentIntents->retrieve($paymentIntentId);
+            $this->throttle('stripe_paymentintents:webhook');
+            $pi = $this->retry(fn () => $this->client->paymentIntents->retrieve($paymentIntentId));
 
             if ($pi->latest_charge && $pi->latest_charge->payment_method_details?->card) {
                 $c = $pi->latest_charge->payment_method_details->card;
@@ -248,7 +251,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
 
             $pmId = $pi->payment_method ?? null;
             if ($pmId && str_starts_with($pmId, 'pm_')) {
-                $pm = $this->client->paymentMethods->retrieve($pmId);
+                $pm = $this->retry(fn () => $this->client->paymentMethods->retrieve($pmId));
 
                 return [
                     'payment_method' => $pm->card->brand ?? $pm->type ?? 'card',

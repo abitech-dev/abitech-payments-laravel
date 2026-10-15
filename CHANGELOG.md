@@ -8,6 +8,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Corregido
 
+- Stripe: `handleWebhook()` autentica el cliente tras verificar la firma, así
+  que un `payment_intent.succeeded` trae marca y últimos dígitos de la tarjeta;
+  antes la consulta al SDK fallaba con el cliente nulo y el dato se perdía.
+- Toda llamada al SDK de `handleWebhook()` y `health()` pasa por `throttle()` y
+  `retry()`, y un 429 o 5xx transitorio se reintenta. En Mercado Pago el error
+  del webhook o de `health()` sale como `PaymentGatewayException` con el código
+  HTTP de la API.
 - Webhooks: la ausencia de encabezados de firma (`x-signature`/`x-request-id`
   de Mercado Pago, `Stripe-Signature`) lanza `PaymentGatewayException` 403;
   antes salía con código 0 y la app host respondía 500, invitando a reintentar.

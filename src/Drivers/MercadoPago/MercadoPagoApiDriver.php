@@ -18,8 +18,6 @@ use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Payment\PaymentClient;
-use MercadoPago\Exceptions\MPApiException;
-use Exception;
 
 class MercadoPagoApiDriver extends AbstractPaymentDriver
 {
@@ -65,27 +63,21 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
     public function health(): bool
     {
         $this->authenticate();
+        $this->throttle('mercadopago_api:health');
 
         try {
-            $client = new PaymentClient();
-            $client->get(1);
-            return true;
-        } catch (MPApiException $e) {
-            if ($e->getStatusCode() === 404) {
+            return $this->retry(function () {
+                (new PaymentClient())->get(1);
+
+                return true;
+            });
+        } catch (PaymentGatewayException $e) {
+            // El pago 1 no existe; un 404 prueba que la API responde.
+            if ($e->getCode() === 404) {
                 return true;
             }
 
-            throw new PaymentGatewayException(
-                "Mercado Pago no responde: " . $e->getMessage(),
-                $e->getStatusCode() ?: 500,
-                $e
-            );
-        } catch (Exception $e) {
-            throw new PaymentGatewayException(
-                "Fallo de conectividad con Mercado Pago: " . $e->getMessage(),
-                500,
-                $e
-            );
+            throw new PaymentGatewayException("Mercado Pago no responde: " . $e->getMessage(), $e->getCode(), $e);
         }
     }
 

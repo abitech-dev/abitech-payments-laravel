@@ -19,6 +19,7 @@ paquete sin app host; los comandos están en `CLAUDE.md` §2.
 | DTO | `tests/Unit/DTOs/PaymentRequestTest.php` |
 | Resolución de drivers | `tests/Feature/PaymentManagerTest.php` |
 | Driver falso o su API de aserciones | `tests/Feature/FakePaymentDriverTest.php` |
+| Driver real con el SDK simulado | `tests/Feature/Drivers/Stripe/StripePaymentIntentsDriverTest.php` |
 
 ## Reglas
 
@@ -29,11 +30,12 @@ paquete sin app host; los comandos están en `CLAUDE.md` §2.
    por la excepción de idioma del `CLAUDE.md`.
 2. **Espejo de `src/`.** `tests/Unit/` para traits, DTO y lógica pura;
    `tests/Feature/` para lo que pasa por el contenedor (manager,
-   provider, middleware). Una clase por archivo, con el nombre del
-   archivo.
-3. **Nada sale a la red.** Un driver real se prueba con el cliente del
-   SDK sustituido por un doble (Mockery) o con `Http::fake()`; nunca con
-   credenciales de sandbox. Cada operación cubre la respuesta feliz, el
+   provider, middleware, drivers); `tests/Doubles/` para los dobles.
+   Una clase por archivo, con el nombre del archivo.
+3. **Nada sale a la red.** Un driver real se prueba con el transporte
+   HTTP del SDK sustituido por `FakeStripeHttpClient` o
+   `FakeMercadoPagoHttpClient` (`tests/Doubles/`), que se desinstalan en
+   `tearDown()`; nunca con credenciales de sandbox. Cada operación cubre la respuesta feliz, el
    rechazo y el error HTTP reintentable.
 4. **Webhooks.** Cada fuente prueba firma válida, firma falsa (403), sin
    cabeceras (403) y sin secreto configurado, como
