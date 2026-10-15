@@ -101,16 +101,14 @@ Las tareas viven en el archivo de tareas de §1.
 |---|---|
 | Montos en `float` | `$amount` de `PaymentRequest.php:10`, `PayoutRequest.php:10`, `SubscriptionRequest.php:15` y `WebhookResult.php:14`, y `refund(?float)` en `PaymentGatewayInterface.php:28`; tarea DT-04 |
 | Códigos reintentables | `retry()` usa `RetriesApiCalls::$retryableHttpCodes` (`RetriesApiCalls.php:27`); `abitech_payments.retry.retryable_http_codes` (`config/abitech_payments.php:79`) no se lee; tarea DT-08 |
-| Orden canónico | `StripeCheckoutDriver::purchase()` valida `success_url` y `cancel_url` después de `authenticate()` y `throttle()` (`StripeCheckoutDriver.php:91-102`); tarea DT-07 |
-| Estado de avisos en Stripe | un evento que no es `payment_intent.*` ni `charge.refunded` devuelve `pending` en vez de `ignored` (`StripePaymentIntentsDriver.php:183-185`); tarea PL-01 |
-| Firma de Mercado Pago | opcional sin secreto (`HandlesMercadoPagoWebhook.php:49-53`) y sin tolerancia de `ts` (`VerifiesWebhookSignature.php:72-108`); tarea PL-02 |
+| Orden canónico | `StripeCheckoutDriver::purchase()` valida `success_url` y `cancel_url` después de `authenticate()` y `throttle()` (`StripeCheckoutDriver.php:91-104`); tarea DT-07 |
+| Estado de avisos en Stripe | un evento que no es `payment_intent.*` ni `charge.refunded` devuelve `pending` en vez de `ignored` (`StripePaymentIntentsDriver.php:184-186`); tarea PL-01 |
+| Firma de Mercado Pago | opcional sin secreto (`HandlesMercadoPagoWebhook.php:49-53`) y sin tolerancia de `ts` (`VerifiesWebhookSignature.php:75-111`); tarea PL-02 |
 | Avisos que no son pago | devuelven `status: 'unknown'` (`HandlesMercadoPagoWebhook.php:67-74`); tarea PL-01 |
 | Middleware de idempotencia | `EnforceIdempotencyKey` solo exige la cabecera; tarea PL-03 lo elimina |
 | `incoming_webhook_logs` | migración publicable que PL-01 retira del paquete |
-| SDK ausente | `authenticate()` no comprueba el SDK (`MercadoPagoApiDriver.php:47-58`, `StripeCheckoutDriver.php:56-68`); sin él sale un `Error` de clase inexistente; tarea DT-06 |
-| FQN y strings de clase | `\Stripe\StripeClient` (`StripeCheckoutDriver.php:33`, `StripePaymentIntentsDriver.php:29`) y `'Stripe\StripeClient'` (`StripeCheckoutDriver.php:66`, `StripePaymentIntentsDriver.php:57`), `'Stripe\Webhook'` y `\Stripe\Exception\*` (`VerifiesWebhookSignature.php:24,41,51-52`), `\RuntimeException` (`FakePaymentDriver.php:98,110,127,141`), `\Throwable` (`RetriesApiCalls.php:53`); tarea DT-12 |
-| `catch` mudo | `StripeCheckoutDriver.php:280` y `StripePaymentIntentsDriver.php:250` devuelven `[]` sin `Log::` (`tech/laravel`); tarea DT-09 |
-| PHP nativo | `DateTime` y `date()` en `MercadoPagoCheckoutDriver.php:197-244`, `StripeCheckoutDriver.php:373-436` y `FakePaymentDriver.php:214-255`; `array_map`/`array_filter` en `MercadoPagoCheckoutDriver.php:109,314,362`, `MercadoPagoApiDriver.php:105` y `HandlesMercadoPagoRefund.php:20`; tarea DT-12 |
+| SDK ausente | `authenticate()` no comprueba el SDK (`MercadoPagoApiDriver.php:47-58`, `StripeCheckoutDriver.php:59-70`); sin él sale un `Error` de clase inexistente; tarea DT-06 |
+| `catch` mudo | `StripeCheckoutDriver.php:282` y `StripePaymentIntentsDriver.php:251` devuelven `[]` sin `Log::` (`tech/laravel`); tarea DT-09 |
 | Comentarios de columna | 5 de más de 3 palabras (`create_currencies_table.php:25`, `create_payment_gateways_table.php:29`, `create_payment_gateway_methods_table.php:32,33,38`); tarea DT-13 |
 | Versión | `composer.json:6` declara `"version": "1.0.0"` (aviso de `composer validate`) y el repo no tiene tags; tarea DT-14 |
 | Distribución | `.gitattributes:2` excluye `/.agent` (la carpeta es `.agents`) y no excluye `.claude/` ni `CLAUDE.md` (`tech/laravel-package.md` regla 8); tarea DT-14 |

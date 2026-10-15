@@ -17,7 +17,7 @@ trait HandlesMercadoPagoRefund
         $mpRequest = new MPRequest(
             "/v1/payments/{$transactionId}/refunds",
             HttpMethod::POST,
-            json_encode(array_filter(['amount' => $amount])),
+            json_encode(collect(['amount' => $amount])->filter()->all()),
             [
                 'Accept: application/json',
                 'Content-Type: application/json; charset=UTF-8',

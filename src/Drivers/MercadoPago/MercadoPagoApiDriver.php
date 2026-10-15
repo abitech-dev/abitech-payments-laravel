@@ -102,10 +102,10 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 'payment_method_id' => $request->metadata['payment_method_id'] ?? null,
                 'payer' => [
                     'email' => $request->email,
-                    'identification' => array_filter([
+                    'identification' => collect([
                         'type' => $request->metadata['payer_id_type'] ?? null,
                         'number' => $request->metadata['payer_id_number'] ?? null,
-                    ])
+                    ])->filter()->all(),
                 ],
             ];
 

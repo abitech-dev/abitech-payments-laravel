@@ -15,6 +15,8 @@ use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use RuntimeException;
 
 /**
  * Driver falso para testing que no requiere SDKs ni conexion a internet.
@@ -95,7 +97,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
         $calls = $this->calls[$method] ?? [];
 
         if (empty($calls)) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "Se esperaba que '{$method}' fuera llamado, pero no se registro ninguna llamada."
             );
         }
@@ -107,7 +109,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
                 }
             }
 
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "Se encontro llamada a '{$method}' pero los argumentos no coinciden."
             );
         }
@@ -124,7 +126,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
         $actual = count($calls);
 
         if ($actual !== $count) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "Se esperaba que '{$method}' fuera llamado {$count} veces, pero se llamo {$actual}."
             );
         }
@@ -138,7 +140,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
     public function assertNotCalled(string $method): static
     {
         if (!empty($this->calls[$method])) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "No se esperaba que '{$method}' fuera llamado, pero se encontro al menos una llamada."
             );
         }
@@ -211,7 +213,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
             subscriptionId: 'fake_sub_' . uniqid(),
             status: 'active',
             planId: $request->planId,
-            nextBillingDate: date('c', strtotime('+1 month')),
+            nextBillingDate: Carbon::now()->addMonth()->toIso8601String(),
             raw: ['test' => true]
         ));
     }
@@ -225,7 +227,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
             success: true,
             subscriptionId: $subscriptionId,
             status: 'cancelled',
-            canceledAt: date('c'),
+            canceledAt: Carbon::now()->toIso8601String(),
             raw: ['test' => true]
         ));
     }
@@ -252,7 +254,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
             success: true,
             subscriptionId: $subscriptionId,
             status: 'active',
-            nextBillingDate: date('c', strtotime('+1 month')),
+            nextBillingDate: Carbon::now()->addMonth()->toIso8601String(),
             raw: ['test' => true]
         ));
     }

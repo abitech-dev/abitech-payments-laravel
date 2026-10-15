@@ -17,6 +17,9 @@ use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
+use Exception;
+use Illuminate\Support\Carbon;
+use Stripe\StripeClient;
 
 class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
@@ -30,7 +33,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     ];
 
     /** Cliente de Stripe inicializado en authenticate(). */
-    protected ?\Stripe\StripeClient $client = null;
+    protected ?StripeClient $client = null;
 
     public static function paymentMethodSchema(): array
     {
@@ -63,8 +66,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             );
         }
 
-        $className = 'Stripe\StripeClient';
-        $this->client = new $className($secret);
+        $this->client = new StripeClient($secret);
     }
 
     /**
@@ -277,7 +279,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             }
 
             return $this->readCardFromPaymentIntent($object['id'] ?? null);
-        } catch (\Exception) {
+        } catch (Exception) {
             return ['payment_method' => ($object['payment_method_types'][0] ?? null)];
         }
     }
@@ -370,7 +372,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
                 planId: $request->planId,
-                nextBillingDate: date('c', $subscription->current_period_end),
+                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
                 raw: $subscription->toArray()
             );
         });
@@ -394,7 +396,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 success: true,
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
-                canceledAt: date('c'),
+                canceledAt: Carbon::now()->toIso8601String(),
                 raw: $subscription->toArray()
             );
         });
@@ -415,7 +417,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
                 planId: $request->planId,
-                nextBillingDate: date('c', $subscription->current_period_end),
+                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
                 raw: $subscription->toArray()
             );
         });
@@ -433,7 +435,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 success: true,
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
-                nextBillingDate: date('c', $subscription->current_period_end),
+                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
                 raw: $subscription->toArray()
             );
         });

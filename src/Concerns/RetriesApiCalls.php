@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Abitech\Payments\Concerns;
 
 use Abitech\Payments\Exceptions\PaymentGatewayException;
+use Throwable;
 
 /**
  * Reintenta llamadas a APIs de pasarelas con backoff exponencial.
@@ -50,7 +51,7 @@ trait RetriesApiCalls
                 $lastException = $e;
                 $delayMs = (int) ($this->retryBaseDelayMs * pow($this->retryMultiplier, $i));
                 usleep($delayMs * 1000);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $httpCode = $e->getCode();
 
                 if (method_exists($e, 'getStatusCode')) {

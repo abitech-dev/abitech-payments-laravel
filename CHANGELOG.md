@@ -8,6 +8,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Cambiado
 
+- `illuminate/collections` pasa a `require`, porque los drivers usan
+  `collect()`; las fechas de suscripción salen de `Illuminate\Support\Carbon`
+  en ISO 8601.
 - **Incompatible.** Los drivers ya no disparan `PaymentInitiated`,
   `PaymentSucceeded`, `RefundProcessed` ni `PayoutProcessed`; devuelven el DTO
   y la app host dispara el evento de `src/Events/` que le corresponda. Iban

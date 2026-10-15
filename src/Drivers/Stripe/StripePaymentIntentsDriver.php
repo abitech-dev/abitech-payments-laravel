@@ -14,6 +14,8 @@ use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
+use Exception;
+use Stripe\StripeClient;
 
 class StripePaymentIntentsDriver extends AbstractPaymentDriver
 {
@@ -26,7 +28,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
     ];
 
     /** Cliente de Stripe inicializado en authenticate(). */
-    protected ?\Stripe\StripeClient $client = null;
+    protected ?StripeClient $client = null;
 
     public static function paymentMethodSchema(): array
     {
@@ -54,8 +56,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             );
         }
 
-        $className = 'Stripe\StripeClient';
-        $this->client = new $className($secret);
+        $this->client = new StripeClient($secret);
     }
 
     public function health(): bool
@@ -247,7 +248,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             }
 
             return [];
-        } catch (\Exception) {
+        } catch (Exception) {
             return [];
         }
     }

@@ -15,11 +15,11 @@ use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
+use Illuminate\Support\Carbon;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Preference\PreferenceClient;
 use MercadoPago\Client\Payment\PaymentClient;
 use MercadoPago\Client\PreApproval\PreApprovalClient;
-use DateTime;
 
 class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
@@ -106,11 +106,11 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             $cancelUrl = $request->cancelUrl ?? $backUrls['failure'] ?? $request->metadata['cancel_url'] ?? null;
             $pendingUrl = $backUrls['pending'] ?? $request->metadata['pending_url'] ?? null;
 
-            $backUrlsPayload = array_filter([
+            $backUrlsPayload = collect([
                 'success' => $successUrl,
                 'failure' => $cancelUrl,
                 'pending' => $pendingUrl,
-            ], fn ($v) => $v !== null);
+            ])->filter(fn ($url) => $url !== null)->all();
 
             $payload = [
                 'items' => $items,
@@ -194,10 +194,10 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         return $this->retry(function () use ($request) {
             $client = new PreApprovalClient();
 
-            $startDate = new DateTime();
+            $startDate = Carbon::now();
             $endDate = isset($request->metadata['end_date'])
-                ? new DateTime($request->metadata['end_date'])
-                : (new DateTime())->modify('+2 years');
+                ? Carbon::parse($request->metadata['end_date'])
+                : Carbon::now()->addYears(2);
 
             $preapproval = $client->create([
                 'reason' => $request->planId,
@@ -206,8 +206,8 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                     'frequency_type' => $this->mapInterval($request->interval),
                     'transaction_amount' => $request->amount,
                     'currency_id' => $request->currency,
-                    'start_date' => $startDate->format('Y-m-d\TH:i:sP'),
-                    'end_date' => $endDate->format('Y-m-d\TH:i:sP'),
+                    'start_date' => $startDate->toIso8601String(),
+                    'end_date' => $endDate->toIso8601String(),
                 ],
                 'payer_email' => $request->email,
                 'back_url' => $request->metadata['back_url'] ?? null,
@@ -241,7 +241,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 subscriptionId: $preapproval->id,
                 status: 'cancelled',
                 planId: $preapproval->reason ?? null,
-                canceledAt: (new DateTime())->format('Y-m-d\TH:i:sP'),
+                canceledAt: Carbon::now()->toIso8601String(),
                 raw: json_decode(json_encode($preapproval), true)
             );
         });
@@ -311,13 +311,13 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
     protected function buildItems(PaymentRequest $request): array
     {
         if (!empty($request->metadata['items'])) {
-            return array_map(fn ($item, $i) => [
+            return collect($request->metadata['items'])->map(fn ($item, $i) => [
                 'id' => $request->idempotencyKey . '-' . ($i + 1) ?? uniqid('', true),
                 'title' => $item['name'] ?? $item['description'] ?? 'Producto',
                 'quantity' => 1,
                 'unit_price' => (float) ($item['price'] ?? 0),
                 'currency_id' => strtoupper($request->currency),
-            ], $request->metadata['items'], array_keys($request->metadata['items']));
+            ])->values()->all();
         }
 
         return [[
@@ -359,9 +359,9 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
     {
         foreach (['excluded_payment_methods', 'excluded_payment_types'] as $key) {
             if (isset($paymentMethods[$key]) && is_array($paymentMethods[$key])) {
-                $paymentMethods[$key] = array_map(function ($item) {
-                    return is_string($item) ? ['id' => $item] : $item;
-                }, $paymentMethods[$key]);
+                $paymentMethods[$key] = collect($paymentMethods[$key])
+                    ->map(fn ($item) => is_string($item) ? ['id' => $item] : $item)
+                    ->all();
             }
         }
 
