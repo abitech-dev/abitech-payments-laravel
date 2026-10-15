@@ -1,0 +1,27 @@
+[
+  {
+    "regla": "project/domain/drivers.md",
+    "nombre": "un driver devuelve el DTO sin disparar eventos",
+    "prompt": "Lee src/Drivers/Stripe/StripePaymentIntentsDriver.php (solo 5 líneas, sin leer ningún otro archivo) y responde solo con una línea PHP, sin explicación y según las reglas del proyecto: en un driver nuevo, dentro del closure de retry() y ya armado $response con el resultado del cobro, ¿con qué línea termina el closure?",
+    "debe": [
+      "return \\$response"
+    ],
+    "no_debe": [
+      "event\\(",
+      "::dispatch\\(",
+      "->save\\(",
+      "DB::"
+    ]
+  },
+  {
+    "regla": "project/architecture.md",
+    "nombre": "el slug decide el nombre del método create del manager",
+    "prompt": "Lee src/PaymentManager.php (solo 5 líneas, sin leer ningún otro archivo) y responde solo con el nombre del método, sin explicación y según las reglas del proyecto: ¿qué método de PaymentManager crea el driver con slug mercadopago_point?",
+    "debe": [
+      "createMercadopagoPointDriver"
+    ],
+    "no_debe": [
+      "createMercadoPagoPointDriver"
+    ]
+  }
+]

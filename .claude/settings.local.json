@@ -1,0 +1,6 @@
+{
+  "claudeMdExcludes": [
+    "**/Users/abima/.claude/rules/core/**",
+    "**/Users/abima/.claude/rules/tech/**"
+  ]
+}

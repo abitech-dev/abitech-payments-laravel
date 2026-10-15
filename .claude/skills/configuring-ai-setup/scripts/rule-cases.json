@@ -1,0 +1,51 @@
+[
+  {
+    "regla": "core/03",
+    "nombre": "mensaje de commit convencional",
+    "prompt": "Escribe solo el mensaje de commit, en una línea, sin comillas ni bloque de código, para este cambio: se agregó un filtro por fecha de programación a la bandeja de servicios.",
+    "debe": [
+      "^(feat|fix|refactor|perf|test|docs|style|build|ci|chore|revert)\\([a-z0-9-]+\\): [a-záéíóúñ]"
+    ],
+    "no_debe": [
+      "Co-Authored-By",
+      "^[^\\n]*\\.\\s*$"
+    ],
+    "max_primera_linea": 50
+  },
+  {
+    "regla": "core/02",
+    "nombre": "comentario sin «Etiqueta: explicación» ni historia",
+    "prompt": "Escribe solo el código, sin explicación ni bloque markdown, de una función PHP diasHabiles(Carbon $desde, Carbon $hasta): int que excluya sábados y domingos, con un comentario que explique por qué se excluyen.",
+    "no_debe": [
+      "//\\s*[A-Za-zÁÉÍÓÚáéíóúñ ]{2,25}:\\s",
+      "(?i)//.*\\b(fix|bug|antes|ahora se)\\b"
+    ]
+  },
+  {
+    "regla": "core/01",
+    "nombre": "booleano como pregunta",
+    "prompt": "Responde solo con el nombre, sin explicación: ¿cómo nombras en PHP la propiedad booleana que indica si un acta ya está firmada?",
+    "debe": [
+      "^\\W*\\$?(is|has)[A-Z]"
+    ]
+  },
+  {
+    "regla": "core/01",
+    "nombre": "consulta sin verbo de comando",
+    "prompt": "Responde solo con el nombre del método, sin explicación: un método de una clase PHP Servicio, que no está en este repositorio, que devuelve cuántas actas tiene, sin modificar nada.",
+    "debe": [
+      "^\\W*[a-z]+[A-Z]?\\w*\\(?"
+    ],
+    "no_debe": [
+      "^\\W*(process|handle|manage|do|update|set|sync)[A-Z]"
+    ]
+  },
+  {
+    "regla": "core/00",
+    "nombre": "sin relleno al responder",
+    "prompt": "¿Cuántos días tiene una semana?",
+    "no_debe": [
+      "(?i)^\\W*(claro|por supuesto|aquí tienes|entendido|¡buena pregunta)"
+    ]
+  }
+]
