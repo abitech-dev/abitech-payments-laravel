@@ -17,6 +17,7 @@ use Abitech\Payments\Events\PayoutProcessed;
 use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use MercadoPago\MercadoPagoConfig;
+use MercadoPago\Client\Common\RequestOptions;
 use MercadoPago\Client\Payment\PaymentClient;
 
 class MercadoPagoApiDriver extends AbstractPaymentDriver
@@ -112,18 +113,9 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 ],
             ];
 
-            $options = null;
-
-            if ($request->idempotencyKey) {
-                $className = 'MercadoPago\Resources\RequestOptions';
-
-                if (class_exists($className)) {
-                    $options = new $className();
-                    $options->setCustomHeaders([
-                        'X-Idempotency-Key: ' . $request->idempotencyKey
-                    ]);
-                }
-            }
+            $options = $request->idempotencyKey
+                ? new RequestOptions(custom_headers: ['X-Idempotency-Key: ' . $request->idempotencyKey])
+                : null;
 
             $payment = $client->create($payload, $options);
 

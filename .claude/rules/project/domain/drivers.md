@@ -63,7 +63,8 @@ y reaccionar al resultado es de la app host.
    se reintente.
 7. **Idempotencia.** `PaymentRequest::$idempotencyKey` viaja a la
    pasarela en toda operación que crea un cobro (`X-Idempotency-Key` en
-   Mercado Pago, referencia externa en los checkout). Guardarla y
+   Mercado Pago, opción `idempotency_key` en Stripe PaymentIntents,
+   referencia externa en los checkout). Guardarla y
    comparar repetidos es del host; el middleware `abitech.idempotency`
    no se amplía.
 8. **Credenciales.** Solo desde `$this->config`, nunca en un mensaje de

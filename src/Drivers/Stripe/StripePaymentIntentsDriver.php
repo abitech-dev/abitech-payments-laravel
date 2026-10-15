@@ -98,7 +98,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
                 'metadata' => $request->metadata,
                 'confirm' => true,
                 'receipt_email' => $request->email ?: null,
-            ]);
+            ], $request->idempotencyKey ? ['idempotency_key' => $request->idempotencyKey] : []);
 
             $status = $this->mapStatus($intent->status);
 

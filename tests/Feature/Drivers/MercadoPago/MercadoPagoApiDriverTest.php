@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abitech\Payments\Tests\Feature\Drivers\MercadoPago;
 
+use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\Drivers\MercadoPago\MercadoPagoApiDriver;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeMercadoPagoHttpClient;
@@ -29,6 +30,22 @@ class MercadoPagoApiDriverTest extends TestCase
         FakeMercadoPagoHttpClient::uninstall();
 
         parent::tearDown();
+    }
+
+    public function test_purchase_sends_the_idempotency_key_header(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, ['id' => 123, 'status' => 'approved']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: 50.0,
+            currency: 'PEN',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'tok_1',
+            idempotencyKey: 'k-1',
+        ));
+
+        $this->assertContains('X-Idempotency-Key: k-1', $mercadoPago->requests[0]->getHeaders());
     }
 
     public function test_health_retries_a_503(): void

@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Corregido
 
+- `PaymentRequest::$idempotencyKey` llega a la pasarela al cobrar. Stripe
+  PaymentIntents la recibe como opción `idempotency_key` y Mercado Pago API
+  como cabecera `X-Idempotency-Key`, que antes no se enviaba porque el driver
+  buscaba `RequestOptions` en un namespace inexistente. Un reintento ya no
+  puede duplicar el cobro.
 - Stripe: `handleWebhook()` autentica el cliente tras verificar la firma, así
   que un `payment_intent.succeeded` trae marca y últimos dígitos de la tarjeta;
   antes la consulta al SDK fallaba con el cliente nulo y el dato se perdía.

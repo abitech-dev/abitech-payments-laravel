@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abitech\Payments\Tests\Feature\Drivers\Stripe;
 
+use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\Drivers\Stripe\StripePaymentIntentsDriver;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeStripeHttpClient;
@@ -30,6 +31,22 @@ class StripePaymentIntentsDriverTest extends TestCase
         FakeStripeHttpClient::uninstall();
 
         parent::tearDown();
+    }
+
+    public function test_purchase_sends_the_idempotency_key_to_stripe(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 'pi_1', 'object' => 'payment_intent', 'status' => 'succeeded']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: 10.0,
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'pm_1',
+            idempotencyKey: 'k-1',
+        ));
+
+        $this->assertContains('Idempotency-Key: k-1', $stripe->headersOf(0));
     }
 
     public function test_a_signed_payment_intent_succeeded_webhook_reads_the_card_without_prior_authentication(): void
