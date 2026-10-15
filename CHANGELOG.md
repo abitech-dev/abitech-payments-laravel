@@ -28,6 +28,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Corregido
 
+- Stripe Checkout valida `success_url` y `cancel_url` antes de autenticar y de
+  contar la llamada en el limitador.
 - Sin el SDK de la pasarela instalado, `authenticate()` lanza
   `PaymentGatewayException` con el `composer require` exacto
   (`stripe/stripe-php` o `mercadopago/dx-php`) en vez de un `Error` de clase

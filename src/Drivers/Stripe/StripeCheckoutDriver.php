@@ -96,9 +96,6 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     public function purchase(PaymentRequest $request): PaymentResponse
     {
         $this->validateCurrency($request->currency);
-        $unitAmount = $this->toStripeAmount($request->amount, $request->currency);
-        $this->authenticate();
-        $this->throttle('stripe_checkout:purchase');
 
         $successUrl = $request->successUrl ?? $request->metadata['success_url'] ?? null;
         $cancelUrl = $request->cancelUrl ?? $request->metadata['cancel_url'] ?? null;
@@ -108,6 +105,10 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 "Se requiere success_url y cancel_url para Stripe Checkout."
             );
         }
+
+        $unitAmount = $this->toStripeAmount($request->amount, $request->currency);
+        $this->authenticate();
+        $this->throttle('stripe_checkout:purchase');
 
         return $this->retry(function () use ($request, $successUrl, $cancelUrl, $unitAmount) {
             $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];

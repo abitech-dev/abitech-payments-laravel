@@ -11,6 +11,7 @@ use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeStripeHttpClient;
 use Abitech\Payments\Tests\Doubles\StripeWebhookRequest;
 use Abitech\Payments\Tests\TestCase;
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 
@@ -119,6 +120,25 @@ class StripeCheckoutDriverTest extends TestCase
             $this->assertSame([], $transport->requests);
             $this->assertStringContainsString('composer require stripe/stripe-php', $exception->getMessage());
         }
+    }
+
+    public function test_purchase_without_urls_fails_before_authenticating_or_throttling(): void
+    {
+        config(['abitech_payments.gateways.stripe' => []]);
+
+        try {
+            $this->driver()->purchase(new PaymentRequest(
+                amount: '10.00',
+                currency: 'USD',
+                email: 'cliente@example.com',
+                description: 'Plan mensual',
+            ));
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertStringContainsString('success_url', $exception->getMessage());
+        }
+
+        $this->assertSame(0, $this->app->make(RateLimiter::class)->attempts('abitech_payments:stripe_checkout:purchase'));
     }
 
     private function driver(): StripeCheckoutDriver
