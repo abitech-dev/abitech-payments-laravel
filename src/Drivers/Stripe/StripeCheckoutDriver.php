@@ -91,6 +91,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     public function purchase(PaymentRequest $request): PaymentResponse
     {
         $this->validateCurrency($request->currency);
+        $unitAmount = $this->toStripeAmount($request->amount, $request->currency);
         $this->authenticate();
         $this->throttle('stripe_checkout:purchase');
 
@@ -103,7 +104,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             );
         }
 
-        return $this->retry(function () use ($request, $successUrl, $cancelUrl) {
+        return $this->retry(function () use ($request, $successUrl, $cancelUrl, $unitAmount) {
             $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
 
             $session = $this->client->checkout->sessions->create([
@@ -111,7 +112,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     'price_data' => [
                         'currency' => strtolower($request->currency),
                         'product_data' => ['name' => $request->description],
-                        'unit_amount' => $this->toStripeAmount($request->amount, $request->currency),
+                        'unit_amount' => $unitAmount,
                     ],
                     'quantity' => $request->metadata['quantity'] ?? 1,
                 ]],
@@ -138,13 +139,12 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     }
 
     /**
-     * Reembolsa un PaymentIntent total o parcialmente.
-     *
-     * @param string $transactionId  ID del PaymentIntent a reembolsar
-     * @param float|null $amount     Monto parcial (null = reembolso total)
+     * Reembolsa un PaymentIntent; el monto parcial se convierte con la moneda
+     * del PaymentIntent.
      */
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('stripe_checkout:refund');
 
@@ -167,12 +167,13 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     public function payout(PayoutRequest $request): PayoutResponse
     {
         $this->validateCurrency($request->currency);
+        $amount = $this->toStripeAmount($request->amount, $request->currency);
         $this->authenticate();
         $this->throttle('stripe_checkout:payout');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $amount) {
             $transfer = $this->client->transfers->create([
-                'amount' => $this->toStripeAmount($request->amount, $request->currency),
+                'amount' => $amount,
                 'currency' => strtolower($request->currency),
                 'destination' => $request->recipient,
                 'description' => $request->description,
@@ -342,17 +343,18 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
      */
     public function createSubscription(SubscriptionRequest $request): SubscriptionResponse
     {
+        $unitAmount = $this->toStripeAmount($request->amount ?? '0', $request->currency ?? 'usd');
         $this->authenticate();
         $this->throttle('stripe_checkout:create_subscription');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $unitAmount) {
             $customer = $this->client->customers->create([
                 'email' => $request->email,
             ]);
 
             $price = $this->client->prices->create([
                 'currency' => strtolower($request->currency ?? 'usd'),
-                'unit_amount' => $this->toStripeAmount($request->amount ?? 0, $request->currency ?? 'usd'),
+                'unit_amount' => $unitAmount,
                 'recurring' => [
                     'interval' => $request->interval ?? 'month',
                     'interval_count' => $request->intervalCount ?? 1,

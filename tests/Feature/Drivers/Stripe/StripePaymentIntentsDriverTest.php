@@ -6,6 +6,7 @@ namespace Abitech\Payments\Tests\Feature\Drivers\Stripe;
 
 use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\Drivers\Stripe\StripePaymentIntentsDriver;
+use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeStripeHttpClient;
 use Abitech\Payments\Tests\Doubles\StripeWebhookRequest;
@@ -39,7 +40,7 @@ class StripePaymentIntentsDriverTest extends TestCase
         $stripe = FakeStripeHttpClient::install([[200, ['id' => 'pi_1', 'object' => 'payment_intent', 'status' => 'succeeded']]]);
 
         $this->driver()->purchase(new PaymentRequest(
-            amount: 10.0,
+            amount: '10.00',
             currency: 'USD',
             email: 'cliente@example.com',
             description: 'Plan mensual',
@@ -56,7 +57,7 @@ class StripePaymentIntentsDriverTest extends TestCase
         FakeStripeHttpClient::install([[200, ['id' => 'pi_1', 'object' => 'payment_intent', 'status' => 'succeeded']]]);
 
         $this->driver()->purchase(new PaymentRequest(
-            amount: 10.0,
+            amount: '10.00',
             currency: 'USD',
             email: 'cliente@example.com',
             description: 'Plan mensual',
@@ -75,7 +76,43 @@ class StripePaymentIntentsDriverTest extends TestCase
         $this->assertSame('completed', $result->status);
         $this->assertSame('visa', $result->cardBrand);
         $this->assertSame('4242', $result->cardLastFour);
+        $this->assertSame('10.00', $result->amount);
         $this->assertCount(1, $stripe->requests);
+    }
+
+    public function test_purchase_sends_the_amount_in_cents(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 'pi_1', 'object' => 'payment_intent', 'status' => 'succeeded']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: '19.99',
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'pm_1',
+        ));
+
+        $this->assertSame(1999, $stripe->requests[0]['params']['amount']);
+    }
+
+    public function test_an_amount_with_more_decimals_than_the_currency_fails_before_calling_stripe(): void
+    {
+        $stripe = FakeStripeHttpClient::install([]);
+
+        try {
+            $this->driver()->purchase(new PaymentRequest(
+                amount: '19.999',
+                currency: 'USD',
+                email: 'cliente@example.com',
+                description: 'Plan mensual',
+                cardToken: 'pm_1',
+            ));
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(422, $exception->getCode());
+        }
+
+        $this->assertSame([], $stripe->requests);
     }
 
     public function test_the_webhook_card_lookup_retries_a_503(): void

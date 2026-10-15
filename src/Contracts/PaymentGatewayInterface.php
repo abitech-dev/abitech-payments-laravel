@@ -21,11 +21,12 @@ interface PaymentGatewayInterface
     public function purchase(PaymentRequest $request): PaymentResponse;
 
     /**
-     * Reembolsar una transacción de forma total o parcial.
+     * Reembolsar una transacción de forma total o parcial; `$amount` es una
+     * cadena decimal en unidad mayor y `null` reembolsa el total.
      *
      * @throws \Abitech\Payments\Exceptions\PaymentGatewayException
      */
-    public function refund(string $transactionId, ?float $amount = null): bool;
+    public function refund(string $transactionId, ?string $amount = null): bool;
 
     /**
      * Enviar fondos a terceros o transferencias (Payouts).

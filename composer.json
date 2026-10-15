@@ -6,6 +6,7 @@
     "version": "1.0.0",
     "require": {
         "php": "^8.2|^8.3|^8.4",
+        "ext-bcmath": "*",
         "illuminate/support": "^11.0|^12.0|^13.0",
         "illuminate/collections": "^11.0|^12.0|^13.0",
         "illuminate/database": "^11.0|^12.0|^13.0",

@@ -45,10 +45,14 @@ y reaccionar al resultado es de la app host.
    `completed`, `pending`, `failed` y `refunded`. Cada driver los mapea
    en un `match` con `pending` por defecto; un aviso que no es un pago
    devuelve `ignored`.
-4. **Montos.** El DTO trae el monto en unidad mayor. Mercado Pago lo
-   recibe así; en Stripe toda conversión a la unidad menor y de vuelta
-   pasa por `toStripeAmount()` y `fromStripeAmount()` de
-   `ConvertsStripeAmounts`, que conoce las monedas sin decimales.
+4. **Montos.** Cadena decimal en unidad mayor (`'19.99'`), nunca
+   `float`, en DTO, `refund()`, `WebhookResult` y eventos.
+   `ValidatesAmounts` rechaza otro formato con 422 antes de autenticar.
+   - Mercado Pago recibe un número JSON; la conversión de ida y vuelta
+     pasa por `ConvertsMercadoPagoAmounts`.
+   - En Stripe toda conversión a la unidad menor y de vuelta pasa por
+     `toStripeAmount()` y `fromStripeAmount()` de `ConvertsStripeAmounts`,
+     con bcmath, y conoce las monedas sin decimales.
 5. **Webhooks.**
    - `handleWebhook()` verifica la firma antes de leer el cuerpo, con
      `VerifiesWebhookSignature`. Sin secreto lanza excepción; sin

@@ -150,8 +150,9 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         });
     }
 
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('mercadopago_checkout:refund');
 
@@ -169,7 +170,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         return $this->retry(function () use ($request) {
             $client = new PaymentClient();
             $payment = $client->create([
-                'transaction_amount' => $request->amount,
+                'transaction_amount' => $this->toMercadoPagoAmount($request->amount),
                 'description' => $request->description,
                 'payment_method_id' => $request->metadata['payment_method_id'] ?? 'account_money',
                 'payer' => ['email' => $request->recipient],
@@ -204,7 +205,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 'auto_recurring' => [
                     'frequency' => $request->intervalCount ?? 1,
                     'frequency_type' => $this->mapInterval($request->interval),
-                    'transaction_amount' => $request->amount,
+                    'transaction_amount' => $request->amount === null ? null : $this->toMercadoPagoAmount($request->amount),
                     'currency_id' => $request->currency,
                     'start_date' => $startDate->toIso8601String(),
                     'end_date' => $endDate->toIso8601String(),
@@ -258,7 +259,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             $payload = [];
 
             if ($request->amount !== null) {
-                $payload['auto_recurring']['transaction_amount'] = $request->amount;
+                $payload['auto_recurring']['transaction_amount'] = $this->toMercadoPagoAmount($request->amount);
             }
 
             if (!empty($payload)) {
@@ -315,7 +316,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 'id' => $request->idempotencyKey . '-' . ($i + 1) ?? uniqid('', true),
                 'title' => $item['name'] ?? $item['description'] ?? 'Producto',
                 'quantity' => 1,
-                'unit_price' => (float) ($item['price'] ?? 0),
+                'unit_price' => $this->toMercadoPagoAmount((string) ($item['price'] ?? '0')),
                 'currency_id' => strtoupper($request->currency),
             ])->values()->all();
         }
@@ -324,7 +325,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             'id' => $request->idempotencyKey ?? uniqid('', true),
             'title' => $request->description,
             'quantity' => 1,
-            'unit_price' => $request->amount,
+            'unit_price' => $this->toMercadoPagoAmount($request->amount),
             'currency_id' => strtoupper($request->currency),
         ]];
     }

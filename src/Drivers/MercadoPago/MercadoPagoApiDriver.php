@@ -95,7 +95,7 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
             $client = new PaymentClient();
 
             $payload = [
-                'transaction_amount' => $request->amount,
+                'transaction_amount' => $this->toMercadoPagoAmount($request->amount),
                 'token' => $request->cardToken,
                 'description' => $request->description,
                 'installments' => $request->metadata['installments'] ?? 1,
@@ -129,8 +129,9 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
         });
     }
 
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('mercadopago_api:refund');
 
@@ -148,7 +149,7 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
         return $this->retry(function () use ($request) {
             $client = new PaymentClient();
             $payment = $client->create([
-                'transaction_amount' => $request->amount,
+                'transaction_amount' => $this->toMercadoPagoAmount($request->amount),
                 'description' => $request->description,
                 'payment_method_id' => $request->metadata['payment_method_id'] ?? 'account_money',
                 'payer' => ['email' => $request->recipient],

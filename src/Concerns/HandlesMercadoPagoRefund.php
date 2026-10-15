@@ -11,13 +11,15 @@ use MercadoPago\Net\MPRequest;
 
 trait HandlesMercadoPagoRefund
 {
-    protected function sendRefundRequest(string $transactionId, ?float $amount = null): true
+    use ConvertsMercadoPagoAmounts;
+
+    protected function sendRefundRequest(string $transactionId, ?string $amount = null): true
     {
         $httpClient = MercadoPagoConfig::getHttpClient();
         $mpRequest = new MPRequest(
             "/v1/payments/{$transactionId}/refunds",
             HttpMethod::POST,
-            json_encode(collect(['amount' => $amount])->filter()->all()),
+            json_encode($amount === null ? [] : ['amount' => $this->toMercadoPagoAmount($amount)]),
             [
                 'Accept: application/json',
                 'Content-Type: application/json; charset=UTF-8',

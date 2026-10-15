@@ -6,6 +6,7 @@ namespace Abitech\Payments\Drivers;
 
 use Abitech\Payments\Concerns\RateLimitsApiCalls;
 use Abitech\Payments\Concerns\RetriesApiCalls;
+use Abitech\Payments\Concerns\ValidatesAmounts;
 use Abitech\Payments\Contracts\PaymentGatewayInterface;
 use Abitech\Payments\Exceptions\UnsupportedCurrencyException;
 
@@ -19,6 +20,7 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
 {
     use RateLimitsApiCalls;
     use RetriesApiCalls;
+    use ValidatesAmounts;
 
     /** Configuracion de la pasarela (credenciales, secrets). */
     protected array $config = [];

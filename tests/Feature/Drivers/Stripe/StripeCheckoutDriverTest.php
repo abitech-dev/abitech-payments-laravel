@@ -40,7 +40,7 @@ class StripeCheckoutDriverTest extends TestCase
         FakeStripeHttpClient::install([[200, ['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/cs_1']]]);
 
         $this->driver()->purchase(new PaymentRequest(
-            amount: 10.0,
+            amount: '10.00',
             currency: 'USD',
             email: 'cliente@example.com',
             description: 'Plan mensual',
@@ -60,7 +60,35 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame('completed', $result->status);
         $this->assertSame('visa', $result->cardBrand);
         $this->assertSame('4242', $result->cardLastFour);
+        $this->assertSame('10.00', $result->amount);
         $this->assertCount(1, $stripe->requests);
+    }
+
+    public function test_purchase_sends_the_amount_in_cents(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/cs_1']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: '19.99',
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            successUrl: 'https://app.example.com/ok',
+            cancelUrl: 'https://app.example.com/cancelado',
+        ));
+
+        $this->assertSame(1999, $stripe->requests[0]['params']['line_items'][0]['price_data']['unit_amount']);
+    }
+
+    public function test_a_partial_refund_converts_the_amount_with_the_payment_intent_currency(): void
+    {
+        $stripe = FakeStripeHttpClient::install([
+            [200, ['id' => 'pi_1', 'object' => 'payment_intent', 'currency' => 'jpy']],
+            [200, ['id' => 're_1', 'object' => 'refund']],
+        ]);
+
+        $this->assertTrue($this->driver()->refund('pi_1', '1500'));
+        $this->assertSame(1500, $stripe->requests[1]['params']['amount']);
     }
 
     public function test_the_webhook_card_lookup_retries_a_503(): void

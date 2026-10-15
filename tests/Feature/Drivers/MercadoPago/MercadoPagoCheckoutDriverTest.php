@@ -36,7 +36,7 @@ class MercadoPagoCheckoutDriverTest extends TestCase
         FakeMercadoPagoHttpClient::install([[201, ['id' => 'pref_1', 'init_point' => 'https://www.mercadopago.com.pe/checkout/pref_1']]]);
 
         $this->driver()->purchase(new PaymentRequest(
-            amount: 50.0,
+            amount: '50.00',
             currency: 'PEN',
             email: 'cliente@example.com',
             description: 'Plan mensual',

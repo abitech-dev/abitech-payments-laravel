@@ -99,19 +99,18 @@ Las tareas viven en el archivo de tareas de §1.
 
 | Tema | Estado |
 |---|---|
-| Montos en `float` | `$amount` de `PaymentRequest.php:10`, `PayoutRequest.php:10`, `SubscriptionRequest.php:15` y `WebhookResult.php:14`, y `refund(?float)` en `PaymentGatewayInterface.php:28`; tarea DT-04 |
-| Códigos reintentables | `retry()` usa `RetriesApiCalls::$retryableHttpCodes` (`RetriesApiCalls.php:27`); `abitech_payments.retry.retryable_http_codes` (`config/abitech_payments.php:79`) no se lee; tarea DT-08 |
-| Orden canónico | `StripeCheckoutDriver::purchase()` valida `success_url` y `cancel_url` después de `authenticate()` y `throttle()` (`StripeCheckoutDriver.php:91-104`); tarea DT-07 |
-| Estado de avisos en Stripe | un evento que no es `payment_intent.*` ni `charge.refunded` devuelve `pending` en vez de `ignored` (`StripePaymentIntentsDriver.php:184-186`); tarea PL-01 |
-| Firma de Mercado Pago | opcional sin secreto (`HandlesMercadoPagoWebhook.php:49-53`) y sin tolerancia de `ts` (`VerifiesWebhookSignature.php:75-111`); tarea PL-02 |
-| Avisos que no son pago | devuelven `status: 'unknown'` (`HandlesMercadoPagoWebhook.php:67-74`); tarea PL-01 |
+| Códigos reintentables | `retry()` usa `RetriesApiCalls::$retryableHttpCodes` (`RetriesApiCalls.php:28`); `abitech_payments.retry.retryable_http_codes` (`config/abitech_payments.php:79`) no se lee; tarea DT-08 |
+| Orden canónico | `StripeCheckoutDriver::purchase()` valida `success_url` y `cancel_url` después de `authenticate()` y `throttle()` (`StripeCheckoutDriver.php:91-105`); tarea DT-07 |
+| Estado de avisos en Stripe | un evento que no es `payment_intent.*` ni `charge.refunded` devuelve `pending` en vez de `ignored` (`StripePaymentIntentsDriver.php:187-189`); tarea PL-01 |
+| Firma de Mercado Pago | opcional sin secreto (`HandlesMercadoPagoWebhook.php:50-54`) y sin tolerancia de `ts` (`VerifiesWebhookSignature.php:75-111`); tarea PL-02 |
+| Avisos que no son pago | devuelven `status: 'unknown'` (`HandlesMercadoPagoWebhook.php:68-75`); tarea PL-01 |
 | Middleware de idempotencia | `EnforceIdempotencyKey` solo exige la cabecera; tarea PL-03 lo elimina |
 | `incoming_webhook_logs` | migración publicable que PL-01 retira del paquete |
 | SDK ausente | `authenticate()` no comprueba el SDK (`MercadoPagoApiDriver.php:47-58`, `StripeCheckoutDriver.php:59-70`); sin él sale un `Error` de clase inexistente; tarea DT-06 |
-| `catch` mudo | `StripeCheckoutDriver.php:282` y `StripePaymentIntentsDriver.php:251` devuelven `[]` sin `Log::` (`tech/laravel`); tarea DT-09 |
+| `catch` mudo | `StripeCheckoutDriver.php:283` y `StripePaymentIntentsDriver.php:254` devuelven `[]` sin `Log::` (`tech/laravel`); tarea DT-09 |
 | Versión | `composer.json:6` declara `"version": "1.0.0"` (aviso de `composer validate`) y el repo no tiene tags; tarea DT-14 |
 | Distribución | `.gitattributes:2` excluye `/.agent` (la carpeta es `.agents`) y no excluye `.claude/` ni `CLAUDE.md` (`tech/laravel-package.md` regla 8); tarea DT-14 |
 | Pruebas | de los 4 drivers reales solo se prueban `handleWebhook()`, el `health()` de Mercado Pago y, en `purchase()`, la clave de idempotencia y la ausencia de eventos (`tests/Feature/Drivers/`); sin pruebas de `EnforceIdempotencyKey`, `DatabaseConfigResolver` ni publicaciones del provider; `RetriesApiCallsTest.php:39,53` comprueban tras la excepción y nunca corren; `PaymentRequestTest.php` lleva 4 clases (`:13,72,88,102`); tarea DT-10 |
 | Docs | sin `docs/README.md`, nombres en inglés y sin prefijo de tipo; excepción vigente de `project/documentation.md` regla 4 |
-| Rangos sin probar | `composer.json:8-14` admite PHP `^8.2\|^8.3\|^8.4` e `illuminate/*` `^11.0\|^12.0\|^13.0`; Testbench `^9.0\|^10.0` (`:18`) no cubre Laravel 13 y el lock local solo prueba Laravel 12 con PHP 8.3 (`tech/laravel-package.md` regla 5); tarea DT-11 |
+| Rangos sin probar | `composer.json:8-16` admite PHP `^8.2\|^8.3\|^8.4` e `illuminate/*` `^11.0\|^12.0\|^13.0`; Testbench `^9.0\|^10.0` (`:20`) no cubre Laravel 13 y el lock local solo prueba Laravel 12 con PHP 8.3 (`tech/laravel-package.md` regla 5); tarea DT-11 |
 | Dependencias de desarrollo | `composer audit` sobre el lock local da 20 avisos en `league/commonmark`, `guzzlehttp/guzzle`, `laravel/framework` y `league/flysystem`; tarea DT-05 |

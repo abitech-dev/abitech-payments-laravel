@@ -114,8 +114,9 @@ class NuevaPasarelaCheckoutDriver extends AbstractPaymentDriver
         });
     }
 
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('nuevapasarela_checkout:refund');
 
@@ -152,7 +153,7 @@ class NuevaPasarelaCheckoutDriver extends AbstractPaymentDriver
             eventType: 'payment.completed',
             transactionId: 'txn_xxx',
             status: 'completed',
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             raw: $request->all()
         );

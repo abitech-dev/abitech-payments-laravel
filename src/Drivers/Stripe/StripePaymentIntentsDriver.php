@@ -80,14 +80,15 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             );
         }
 
+        $amount = $this->toStripeAmount($request->amount, $request->currency);
         $this->authenticate();
         $this->throttle('stripe_paymentintents:purchase');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $amount) {
             $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
 
             $intent = $this->client->paymentIntents->create([
-                'amount' => $this->toStripeAmount($request->amount, $request->currency),
+                'amount' => $amount,
                 'currency' => strtolower($request->currency),
                 'payment_method' => $request->cardToken,
                 'payment_method_types' => $paymentMethodTypes,
@@ -110,8 +111,9 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         });
     }
 
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('stripe_paymentintents:refund');
 
@@ -134,12 +136,13 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
     public function payout(PayoutRequest $request): PayoutResponse
     {
         $this->validateCurrency($request->currency);
+        $amount = $this->toStripeAmount($request->amount, $request->currency);
         $this->authenticate();
         $this->throttle('stripe_paymentintents:payout');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $amount) {
             $transfer = $this->client->transfers->create([
-                'amount' => $this->toStripeAmount($request->amount, $request->currency),
+                'amount' => $amount,
                 'currency' => strtolower($request->currency),
                 'destination' => $request->recipient,
                 'description' => $request->description,

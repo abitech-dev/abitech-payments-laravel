@@ -38,7 +38,7 @@ class MercadoPagoApiDriverTest extends TestCase
         $mercadoPago = FakeMercadoPagoHttpClient::install([[201, ['id' => 123, 'status' => 'approved']]]);
 
         $this->driver()->purchase(new PaymentRequest(
-            amount: 50.0,
+            amount: '50.50',
             currency: 'PEN',
             email: 'cliente@example.com',
             description: 'Plan mensual',
@@ -49,13 +49,36 @@ class MercadoPagoApiDriverTest extends TestCase
         $this->assertContains('X-Idempotency-Key: k-1', $mercadoPago->requests[0]->getHeaders());
     }
 
+    public function test_purchase_sends_the_amount_as_a_json_number(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, ['id' => 123, 'status' => 'approved']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: '19.99',
+            currency: 'PEN',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'tok_1',
+        ));
+
+        $this->assertStringContainsString('"transaction_amount":19.99,', $mercadoPago->requests[0]->getPayload());
+    }
+
+    public function test_a_partial_refund_sends_the_amount_as_a_json_number(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, ['id' => 1, 'status' => 'approved']]]);
+
+        $this->assertTrue($this->driver()->refund('123', '10.50'));
+        $this->assertSame('{"amount":10.5}', $mercadoPago->requests[0]->getPayload());
+    }
+
     public function test_purchase_dispatches_no_events(): void
     {
         $this->fakePackageEvents();
         FakeMercadoPagoHttpClient::install([[201, ['id' => 123, 'status' => 'approved']]]);
 
         $this->driver()->purchase(new PaymentRequest(
-            amount: 50.0,
+            amount: '50.50',
             currency: 'PEN',
             email: 'cliente@example.com',
             description: 'Plan mensual',
@@ -88,6 +111,7 @@ class MercadoPagoApiDriverTest extends TestCase
         $this->assertCount(2, $mercadoPago->requests);
         $this->assertSame('completed', $result->status);
         $this->assertSame('123', $result->transactionId);
+        $this->assertSame('50.00', $result->amount);
     }
 
     private function driver(): MercadoPagoApiDriver

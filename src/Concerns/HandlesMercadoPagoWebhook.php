@@ -19,6 +19,7 @@ use Abitech\Payments\Exceptions\PaymentGatewayException;
  */
 trait HandlesMercadoPagoWebhook
 {
+    use ConvertsMercadoPagoAmounts;
     use VerifiesWebhookSignature;
 
     /**
@@ -82,7 +83,7 @@ trait HandlesMercadoPagoWebhook
             eventType: $type,
             transactionId: (string) $payment->id,
             status: $this->mapMercadoPagoStatus($payment->status),
-            amount: (float) $payment->transaction_amount,
+            amount: $this->fromMercadoPagoAmount($payment->transaction_amount),
             currency: $payment->currency_id,
             paymentMethod: $payment->payment_method_id ?? null,
             cardBrand: $payment->card->issuer->name ?? null,

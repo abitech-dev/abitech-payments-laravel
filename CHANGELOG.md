@@ -8,6 +8,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Cambiado
 
+- **Incompatible.** Los montos son cadenas decimales en unidad mayor
+  (`'19.99'`) en vez de `float`: `$amount` de `PaymentRequest`,
+  `PayoutRequest`, `SubscriptionRequest`, `WebhookResult` y `RefundProcessed`,
+  y `refund(string $transactionId, ?string $amount = null)`. Un monto con otro
+  formato lanza `PaymentGatewayException` 422, y en Stripe también uno con más
+  decimales de los que admite la moneda. La conversión a la unidad menor de
+  Stripe usa bcmath, así que el paquete requiere `ext-bcmath`. La app host debe
+  pasar cadenas y leer `WebhookResult::$amount` como cadena.
 - `illuminate/collections` pasa a `require`, porque los drivers usan
   `collect()`; las fechas de suscripción salen de `Illuminate\Support\Carbon`
   en ISO 8601.

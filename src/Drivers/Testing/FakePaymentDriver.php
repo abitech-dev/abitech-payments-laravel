@@ -164,8 +164,9 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
         ));
     }
 
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->recordCall('refund', [$transactionId, $amount]);
         $this->guardThrow();
 
@@ -195,7 +196,7 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
             eventType: 'payment.succeeded',
             transactionId: 'fake_txn_webhook',
             status: 'completed',
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             raw: $request->all()
         ));
