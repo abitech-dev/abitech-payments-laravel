@@ -27,6 +27,9 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         'DKK', 'PLN', 'CZK',
     ];
 
+    /** Clase cuya ausencia indica que falta el SDK. */
+    protected const SDK_CLASS = StripeClient::class;
+
     /** Cliente de Stripe inicializado en authenticate(). */
     protected ?StripeClient $client = null;
 
@@ -48,6 +51,8 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
 
     protected function authenticate(): void
     {
+        $this->ensureSdkInstalled(static::SDK_CLASS, 'stripe/stripe-php');
+
         $secret = $this->config['secret'] ?? null;
 
         if (empty($secret)) {

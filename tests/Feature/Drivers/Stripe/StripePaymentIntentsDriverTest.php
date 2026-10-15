@@ -128,6 +128,22 @@ class StripePaymentIntentsDriverTest extends TestCase
         $this->assertSame('visa', $result->cardBrand);
     }
 
+    public function test_a_missing_sdk_asks_for_the_exact_composer_require(): void
+    {
+        $transport = FakeStripeHttpClient::install([]);
+        $driver = new class(['secret' => 'sk_test_x']) extends StripePaymentIntentsDriver {
+            protected const SDK_CLASS = 'Stripe\\ClaseAusente';
+        };
+
+        try {
+            $driver->health();
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame([], $transport->requests);
+            $this->assertStringContainsString('composer require stripe/stripe-php', $exception->getMessage());
+        }
+    }
+
     private function driver(): StripePaymentIntentsDriver
     {
         return $this->app->make(PaymentManager::class)->driver('stripe_paymentintents');

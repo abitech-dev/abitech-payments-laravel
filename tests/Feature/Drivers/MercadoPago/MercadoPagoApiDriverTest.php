@@ -6,6 +6,7 @@ namespace Abitech\Payments\Tests\Feature\Drivers\MercadoPago;
 
 use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\Drivers\MercadoPago\MercadoPagoApiDriver;
+use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeMercadoPagoHttpClient;
 use Abitech\Payments\Tests\TestCase;
@@ -112,6 +113,22 @@ class MercadoPagoApiDriverTest extends TestCase
         $this->assertSame('completed', $result->status);
         $this->assertSame('123', $result->transactionId);
         $this->assertSame('50.00', $result->amount);
+    }
+
+    public function test_a_missing_sdk_asks_for_the_exact_composer_require(): void
+    {
+        $transport = FakeMercadoPagoHttpClient::install([]);
+        $driver = new class(['access_token' => 'TEST-token']) extends MercadoPagoApiDriver {
+            protected const SDK_CLASS = 'MercadoPago\\ClaseAusente';
+        };
+
+        try {
+            $driver->health();
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame([], $transport->requests);
+            $this->assertStringContainsString('composer require mercadopago/dx-php', $exception->getMessage());
+        }
     }
 
     private function driver(): MercadoPagoApiDriver

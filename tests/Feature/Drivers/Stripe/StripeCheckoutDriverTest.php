@@ -6,6 +6,7 @@ namespace Abitech\Payments\Tests\Feature\Drivers\Stripe;
 
 use Abitech\Payments\Drivers\Stripe\StripeCheckoutDriver;
 use Abitech\Payments\DTO\PaymentRequest;
+use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeStripeHttpClient;
 use Abitech\Payments\Tests\Doubles\StripeWebhookRequest;
@@ -102,6 +103,22 @@ class StripeCheckoutDriverTest extends TestCase
 
         $this->assertCount(2, $stripe->requests);
         $this->assertSame('visa', $result->cardBrand);
+    }
+
+    public function test_a_missing_sdk_asks_for_the_exact_composer_require(): void
+    {
+        $transport = FakeStripeHttpClient::install([]);
+        $driver = new class(['secret' => 'sk_test_x']) extends StripeCheckoutDriver {
+            protected const SDK_CLASS = 'Stripe\\ClaseAusente';
+        };
+
+        try {
+            $driver->health();
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame([], $transport->requests);
+            $this->assertStringContainsString('composer require stripe/stripe-php', $exception->getMessage());
+        }
     }
 
     private function driver(): StripeCheckoutDriver

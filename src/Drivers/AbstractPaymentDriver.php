@@ -8,6 +8,7 @@ use Abitech\Payments\Concerns\RateLimitsApiCalls;
 use Abitech\Payments\Concerns\RetriesApiCalls;
 use Abitech\Payments\Concerns\ValidatesAmounts;
 use Abitech\Payments\Contracts\PaymentGatewayInterface;
+use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\Exceptions\UnsupportedCurrencyException;
 
 /**
@@ -50,6 +51,18 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
      * Ej: 'mercadopago_checkout', 'stripe_paymentintents'.
      */
     abstract public function getGatewayName(): string;
+
+    /**
+     * Los SDK van en `suggest`, así que la app host puede no tenerlos.
+     */
+    protected function ensureSdkInstalled(string $sdkClass, string $package): void
+    {
+        if (! class_exists($sdkClass)) {
+            throw new PaymentGatewayException(
+                "El SDK {$package} no está instalado. Ejecute composer require {$package}."
+            );
+        }
+    }
 
     /**
      * Lanza UnsupportedCurrencyException si la divisa no esta en supportedCurrencies.

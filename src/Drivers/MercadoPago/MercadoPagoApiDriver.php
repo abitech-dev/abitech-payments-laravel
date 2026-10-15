@@ -22,6 +22,9 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 
+    /** Clase cuya ausencia indica que falta el SDK. */
+    protected const SDK_CLASS = MercadoPagoConfig::class;
+
     public static function paymentMethodSchema(): array
     {
         return [
@@ -46,6 +49,8 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
 
     protected function authenticate(): void
     {
+        $this->ensureSdkInstalled(static::SDK_CLASS, 'mercadopago/dx-php');
+
         $accessToken = $this->config['access_token'] ?? null;
 
         if (empty($accessToken)) {

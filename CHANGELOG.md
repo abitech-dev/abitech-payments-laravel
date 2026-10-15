@@ -28,6 +28,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Corregido
 
+- Sin el SDK de la pasarela instalado, `authenticate()` lanza
+  `PaymentGatewayException` con el `composer require` exacto
+  (`stripe/stripe-php` o `mercadopago/dx-php`) en vez de un `Error` de clase
+  inexistente.
 - `PaymentRequest::$idempotencyKey` llega a la pasarela al cobrar. Stripe
   PaymentIntents la recibe como opción `idempotency_key` y Mercado Pago API
   como cabecera `X-Idempotency-Key`, que antes no se enviaba porque el driver
