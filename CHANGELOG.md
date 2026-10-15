@@ -8,6 +8,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Cambiado
 
+- La versión sale del tag `vX.Y.Z` y no de `composer.json`. El paquete ya no
+  distribuye `.agents/`, `.claude/` ni `CLAUDE.md`.
 - `abitech.idempotency` responde «Se requiere el encabezado X-Idempotency-Key.»
   sin cabecera, sin aludir a pagos, porque la app host también lo aplica en
   mutaciones que no cobran. Una prueba que comparaba el texto anterior debe
