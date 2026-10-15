@@ -109,7 +109,6 @@ Las tareas viven en el archivo de tareas de §1.
 | `incoming_webhook_logs` | migración publicable que PL-01 retira del paquete |
 | SDK ausente | `authenticate()` no comprueba el SDK (`MercadoPagoApiDriver.php:47-58`, `StripeCheckoutDriver.php:59-70`); sin él sale un `Error` de clase inexistente; tarea DT-06 |
 | `catch` mudo | `StripeCheckoutDriver.php:282` y `StripePaymentIntentsDriver.php:251` devuelven `[]` sin `Log::` (`tech/laravel`); tarea DT-09 |
-| Comentarios de columna | 5 de más de 3 palabras (`create_currencies_table.php:25`, `create_payment_gateways_table.php:29`, `create_payment_gateway_methods_table.php:32,33,38`); tarea DT-13 |
 | Versión | `composer.json:6` declara `"version": "1.0.0"` (aviso de `composer validate`) y el repo no tiene tags; tarea DT-14 |
 | Distribución | `.gitattributes:2` excluye `/.agent` (la carpeta es `.agents`) y no excluye `.claude/` ni `CLAUDE.md` (`tech/laravel-package.md` regla 8); tarea DT-14 |
 | Pruebas | de los 4 drivers reales solo se prueban `handleWebhook()`, el `health()` de Mercado Pago y, en `purchase()`, la clave de idempotencia y la ausencia de eventos (`tests/Feature/Drivers/`); sin pruebas de `EnforceIdempotencyKey`, `DatabaseConfigResolver` ni publicaciones del provider; `RetriesApiCallsTest.php:39,53` comprueban tras la excepción y nunca corren; `PaymentRequestTest.php` lleva 4 clases (`:13,72,88,102`); tarea DT-10 |
