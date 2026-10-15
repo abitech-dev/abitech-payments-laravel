@@ -10,7 +10,7 @@ persiste, deduplica y decide.
 - Genérico de Abitech y reutilizable fuera de Arsy. Hoy lo instala solo
   `arsy-account-app`, como `dev-main` desde el repositorio VCS.
 - Tareas en `../../arsy-architecture/tareas/payments-laravel.md` (PL-01
-  a PL-07, versión 1.1, y deuda DT-01 a DT-15), con sus diseños en
+  a PL-07, versión 1.1, y deuda DT-01 a DT-16), con sus diseños en
   `disenos/`.
 - Contrato v1 sin capas de compatibilidad hasta producción (ADR 0005),
   aplicado en `project/architecture.md` regla 8.

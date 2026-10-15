@@ -8,6 +8,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Cambiado
 
+- `abitech.idempotency` responde «Se requiere el encabezado X-Idempotency-Key.»
+  sin cabecera, sin aludir a pagos, porque la app host también lo aplica en
+  mutaciones que no cobran. Una prueba que comparaba el texto anterior debe
+  actualizarse.
 - **Incompatible.** Los montos son cadenas decimales en unidad mayor
   (`'19.99'`) en vez de `float`: `$amount` de `PaymentRequest`,
   `PayoutRequest`, `SubscriptionRequest`, `WebhookResult` y `RefundProcessed`,
