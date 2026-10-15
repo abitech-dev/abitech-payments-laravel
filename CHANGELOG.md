@@ -4,7 +4,7 @@ Todas las versiones notables de `abitech/payments-laravel` estan documentadas aq
 
 El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Sin publicar]
 
 ### Cambiado
 

@@ -28,7 +28,7 @@ quien integra el paquete en una app host.
    `docs/referencia-<pasarela>.md` o `docs/guia-despliegue.md`.
 4. **Excepciones de `tech/documentation.md`.** Se anotan aquí con su
    motivo y su fila de deuda en `CLAUDE.md` §7.
-   - Los seis documentos actuales de `docs/` (`docs/architecture.md`,
+   - Los cinco documentos actuales de `docs/` (`docs/architecture.md`,
      `docs/stripe.md` y los demás) conservan su nombre en inglés y sin
      prefijo, porque el README y los propios docs los enlazan.
      Renombrar uno corrige sus enlaces en el mismo cambio.
