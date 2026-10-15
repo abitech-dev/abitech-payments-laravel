@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Abitech\Payments\Tests\Feature\Drivers\MercadoPago;
 
 use Abitech\Payments\Drivers\MercadoPago\MercadoPagoCheckoutDriver;
+use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeMercadoPagoHttpClient;
 use Abitech\Payments\Tests\TestCase;
+use Illuminate\Support\Facades\Event;
 
 class MercadoPagoCheckoutDriverTest extends TestCase
 {
@@ -26,6 +28,21 @@ class MercadoPagoCheckoutDriverTest extends TestCase
         FakeMercadoPagoHttpClient::uninstall();
 
         parent::tearDown();
+    }
+
+    public function test_purchase_dispatches_no_events(): void
+    {
+        $this->fakePackageEvents();
+        FakeMercadoPagoHttpClient::install([[201, ['id' => 'pref_1', 'init_point' => 'https://www.mercadopago.com.pe/checkout/pref_1']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: 50.0,
+            currency: 'PEN',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+        ));
+
+        Event::assertNothingDispatched();
     }
 
     public function test_health_retries_a_503(): void

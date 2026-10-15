@@ -11,6 +11,7 @@ use Abitech\Payments\Tests\Doubles\FakeStripeHttpClient;
 use Abitech\Payments\Tests\Doubles\StripeWebhookRequest;
 use Abitech\Payments\Tests\TestCase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 
 class StripePaymentIntentsDriverTest extends TestCase
 {
@@ -47,6 +48,22 @@ class StripePaymentIntentsDriverTest extends TestCase
         ));
 
         $this->assertContains('Idempotency-Key: k-1', $stripe->headersOf(0));
+    }
+
+    public function test_purchase_dispatches_no_events(): void
+    {
+        $this->fakePackageEvents();
+        FakeStripeHttpClient::install([[200, ['id' => 'pi_1', 'object' => 'payment_intent', 'status' => 'succeeded']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: 10.0,
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'pm_1',
+        ));
+
+        Event::assertNothingDispatched();
     }
 
     public function test_a_signed_payment_intent_succeeded_webhook_reads_the_card_without_prior_authentication(): void

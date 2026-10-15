@@ -10,6 +10,7 @@ use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeMercadoPagoHttpClient;
 use Abitech\Payments\Tests\TestCase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 
 class MercadoPagoApiDriverTest extends TestCase
 {
@@ -46,6 +47,22 @@ class MercadoPagoApiDriverTest extends TestCase
         ));
 
         $this->assertContains('X-Idempotency-Key: k-1', $mercadoPago->requests[0]->getHeaders());
+    }
+
+    public function test_purchase_dispatches_no_events(): void
+    {
+        $this->fakePackageEvents();
+        FakeMercadoPagoHttpClient::install([[201, ['id' => 123, 'status' => 'approved']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: 50.0,
+            currency: 'PEN',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'tok_1',
+        ));
+
+        Event::assertNothingDispatched();
     }
 
     public function test_health_retries_a_503(): void

@@ -6,6 +6,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Unreleased]
 
+### Cambiado
+
+- **Incompatible.** Los drivers ya no disparan `PaymentInitiated`,
+  `PaymentSucceeded`, `RefundProcessed` ni `PayoutProcessed`; devuelven el DTO
+  y la app host dispara el evento de `src/Events/` que le corresponda. Iban
+  dentro de `retry()`, así que un listener que fallaba con 429 o 5xx repetía la
+  llamada a la pasarela. Una app que los escuchaba debe dispararlos tras la
+  llamada al driver (account no escucha ninguno).
+
 ### Corregido
 
 - `PaymentRequest::$idempotencyKey` llega a la pasarela al cobrar. Stripe

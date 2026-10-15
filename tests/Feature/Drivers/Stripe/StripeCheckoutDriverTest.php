@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Abitech\Payments\Tests\Feature\Drivers\Stripe;
 
 use Abitech\Payments\Drivers\Stripe\StripeCheckoutDriver;
+use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeStripeHttpClient;
 use Abitech\Payments\Tests\Doubles\StripeWebhookRequest;
 use Abitech\Payments\Tests\TestCase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 
 class StripeCheckoutDriverTest extends TestCase
 {
@@ -30,6 +32,23 @@ class StripeCheckoutDriverTest extends TestCase
         FakeStripeHttpClient::uninstall();
 
         parent::tearDown();
+    }
+
+    public function test_purchase_dispatches_no_events(): void
+    {
+        $this->fakePackageEvents();
+        FakeStripeHttpClient::install([[200, ['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/cs_1']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: 10.0,
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            successUrl: 'https://app.example.com/ok',
+            cancelUrl: 'https://app.example.com/cancelado',
+        ));
+
+        Event::assertNothingDispatched();
     }
 
     public function test_a_signed_payment_intent_succeeded_webhook_reads_the_card_without_prior_authentication(): void

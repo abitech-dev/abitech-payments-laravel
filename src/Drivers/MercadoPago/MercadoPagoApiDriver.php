@@ -11,10 +11,6 @@ use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
-use Abitech\Payments\Events\PaymentInitiated;
-use Abitech\Payments\Events\PaymentSucceeded;
-use Abitech\Payments\Events\PayoutProcessed;
-use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Common\RequestOptions;
@@ -122,7 +118,7 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
             $mappedStatus = $this->mapMercadoPagoStatus($payment->status);
             $success = in_array($mappedStatus, ['completed', 'pending'], true);
 
-            $response = new PaymentResponse(
+            return new PaymentResponse(
                 success: $success,
                 transactionId: (string) $payment->id,
                 status: $mappedStatus,
@@ -130,14 +126,6 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 errorMessage: $payment->status_detail ?? null,
                 raw: json_decode(json_encode($payment), true)
             );
-
-            if ($mappedStatus === 'completed') {
-                event(new PaymentSucceeded($response, 'mercadopago_api'));
-            } else {
-                event(new PaymentInitiated($response, 'mercadopago_api'));
-            }
-
-            return $response;
         });
     }
 
@@ -146,13 +134,9 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
         $this->authenticate();
         $this->throttle('mercadopago_api:refund');
 
-        $result = $this->retry(function () use ($transactionId, $amount) {
+        return $this->retry(function () use ($transactionId, $amount) {
             return $this->sendRefundRequest($transactionId, $amount);
         });
-
-        event(new RefundProcessed('mercadopago_api', $transactionId, $amount));
-
-        return $result;
     }
 
     public function payout(PayoutRequest $request): PayoutResponse
@@ -170,16 +154,12 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
                 'payer' => ['email' => $request->recipient],
             ]);
 
-            $response = new PayoutResponse(
+            return new PayoutResponse(
                 success: $payment->status === 'approved',
                 payoutId: (string) $payment->id,
                 status: $payment->status === 'approved' ? 'completed' : 'pending',
                 raw: json_decode(json_encode($payment), true)
             );
-
-            event(new PayoutProcessed($response, 'mercadopago_api'));
-
-            return $response;
         });
     }
 }
