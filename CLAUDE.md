@@ -35,7 +35,9 @@ local (`project/testing.md` regla 1).
 
 ## 3. Puertas de calidad
 
-Sin CI ni linters en el repositorio. Antes de entregar, estas tres con
+CI en `.github/workflows/tests.yml` corre la suite con PHP 8.2 y Laravel
+11 en `--prefer-lowest`, PHP 8.4 con Laravel 11, y PHP 8.3 y 8.4 con
+Laravel 13, que exige PHP 8.3. Sin linters. Antes de entregar, estas tres con
 cero errores; `composer audit` sale con 0 tras actualizar el lock local
 con `composer update -W` dentro de los rangos.
 
@@ -107,4 +109,3 @@ Las tareas viven en el archivo de tareas de §1.
 | Middleware de idempotencia | `EnforceIdempotencyKey` solo exige la cabecera; tarea PL-03 lo elimina |
 | `incoming_webhook_logs` | migración publicable que PL-01 retira del paquete |
 | Docs | sin `docs/README.md`, nombres en inglés y sin prefijo de tipo; excepción vigente de `project/documentation.md` regla 4 |
-| Rangos sin probar | `composer.json:7-16` admite PHP `^8.2\|^8.3\|^8.4` e `illuminate/*` `^11.0\|^12.0\|^13.0`; Testbench `^9.0\|^10.0` (`:20`) no cubre Laravel 13 y el lock local solo prueba Laravel 12 con PHP 8.3 (`tech/laravel-package.md` regla 5); tarea DT-11 |

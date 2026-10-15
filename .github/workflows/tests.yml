@@ -1,0 +1,43 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  phpunit:
+    name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }} ${{ matrix.stability }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # La fila mínima prueba el piso de cada rango de composer.json.
+          - { php: '8.2', laravel: '11.*', testbench: '9.*', stability: prefer-lowest }
+          - { php: '8.4', laravel: '11.*', testbench: '9.*', stability: prefer-stable }
+          # Laravel 13 exige PHP 8.3, así que su fila baja empieza ahí.
+          - { php: '8.3', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
+          - { php: '8.4', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: bcmath, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Validar composer.json
+        run: composer validate --strict --no-check-lock
+
+      - name: Instalar dependencias
+        run: |
+          composer require --dev "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-update --no-interaction
+          composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
+
+      - name: Pruebas
+        run: vendor/bin/phpunit

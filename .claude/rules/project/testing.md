@@ -26,7 +26,8 @@ paquete sin app host; los comandos están en `CLAUDE.md` §2.
 ## Reglas
 
 1. **PHPUnit sobre Testbench.** `composer.json` admite PHPUnit
-   `^10|^11` y Testbench `^9|^10`; el lock local trae 11 y 10. Toda
+   `^10|^11` y Testbench `^9|^10|^11`; el lock local trae 11 y 10, y
+   `.github/workflows/tests.yml` prueba el piso y el techo de los rangos. Toda
    prueba extiende `Abitech\Payments\Tests\TestCase`, que registra
    `PaymentsServiceProvider`. Métodos `test_<comportamiento>` en inglés,
    por la excepción de idioma del `CLAUDE.md`.
