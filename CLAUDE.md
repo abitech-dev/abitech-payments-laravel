@@ -35,12 +35,14 @@ local (`project/testing.md` regla 1).
 
 ## 3. Puertas de calidad
 
-Sin CI ni linters en el repositorio. Antes de entregar, estas dos con
-cero errores.
+Sin CI ni linters en el repositorio. Antes de entregar, estas tres con
+cero errores; `composer audit` sale con 0 tras actualizar el lock local
+con `composer update -W` dentro de los rangos.
 
 ```bash
 vendor/bin/phpunit
 composer validate
+composer audit --locked
 ```
 
 Formato, análisis estático y mutación se declaran no cubiertos
@@ -113,4 +115,3 @@ Las tareas viven en el archivo de tareas de §1.
 | Pruebas | de los 4 drivers reales solo se prueban `handleWebhook()`, el `health()` de Mercado Pago y, en `purchase()`, la clave de idempotencia y la ausencia de eventos (`tests/Feature/Drivers/`); sin pruebas de `EnforceIdempotencyKey`, `DatabaseConfigResolver` ni publicaciones del provider; `RetriesApiCallsTest.php:39,53` comprueban tras la excepción y nunca corren; `PaymentRequestTest.php` lleva 4 clases (`:13,72,88,102`); tarea DT-10 |
 | Docs | sin `docs/README.md`, nombres en inglés y sin prefijo de tipo; excepción vigente de `project/documentation.md` regla 4 |
 | Rangos sin probar | `composer.json:8-16` admite PHP `^8.2\|^8.3\|^8.4` e `illuminate/*` `^11.0\|^12.0\|^13.0`; Testbench `^9.0\|^10.0` (`:20`) no cubre Laravel 13 y el lock local solo prueba Laravel 12 con PHP 8.3 (`tech/laravel-package.md` regla 5); tarea DT-11 |
-| Dependencias de desarrollo | `composer audit` sobre el lock local da 20 avisos en `league/commonmark`, `guzzlehttp/guzzle`, `laravel/framework` y `league/flysystem`; tarea DT-05 |
