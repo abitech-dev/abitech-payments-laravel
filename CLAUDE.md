@@ -10,7 +10,8 @@ persiste, deduplica y decide.
 - Genérico de Abitech y reutilizable fuera de Arsy. Hoy lo instala solo
   `arsy-account-app`, como `dev-main` desde el repositorio VCS.
 - Tareas en `../../arsy-architecture/tareas/payments-laravel.md` (PL-01
-  a PL-07, versión 1.1), con sus diseños en `disenos/`.
+  a PL-07, versión 1.1, y deuda DT-01 a DT-15), con sus diseños en
+  `disenos/`.
 - Contrato v1 sin capas de compatibilidad hasta producción (ADR 0005),
   aplicado en `project/architecture.md` regla 8.
 - Idioma (excepción de `core/04` regla 3). Clases, métodos, variables,
@@ -98,25 +99,25 @@ Las tareas viven en el archivo de tareas de §1.
 
 | Tema | Estado |
 |---|---|
-| Eventos desde los drivers | 13 `event(new ...)` en `src/Drivers/**` (p. ej. `StripePaymentIntentsDriver.php:113`, `MercadoPagoApiDriver.php:151`) contra `project/domain/drivers.md`, `docs/architecture.md:30` y el README; account no escucha ninguno |
-| Montos en `float` | `$amount` de `PaymentRequest.php:10`, `PayoutRequest.php:10`, `SubscriptionRequest.php:15` y `WebhookResult.php:14`, y `refund(?float)` en `PaymentGatewayInterface.php:28` |
-| Códigos reintentables | `retry()` usa `RetriesApiCalls::$retryableHttpCodes` (`RetriesApiCalls.php:27`); `abitech_payments.retry.retryable_http_codes` (`config/abitech_payments.php:79`) no se lee |
-| Orden canónico | `StripeCheckoutDriver::purchase()` valida `success_url` y `cancel_url` después de `authenticate()` y `throttle()` (`StripeCheckoutDriver.php:94-105`) |
-| SDK fuera de `retry()` | `HandlesMercadoPagoWebhook.php:79-82`, `StripeCheckoutDriver.php:318` y `StripePaymentIntentsDriver.php:237,251` llaman al SDK sin `retry()` ni `throttle()` |
+| Eventos desde los drivers | 13 `event(new ...)` en `src/Drivers/**` (p. ej. `StripePaymentIntentsDriver.php:113`, `MercadoPagoApiDriver.php:151`) contra `project/domain/drivers.md`, `docs/architecture.md:30` y el README; account no escucha ninguno; tarea DT-02 |
+| Montos en `float` | `$amount` de `PaymentRequest.php:10`, `PayoutRequest.php:10`, `SubscriptionRequest.php:15` y `WebhookResult.php:14`, y `refund(?float)` en `PaymentGatewayInterface.php:28`; tarea DT-04 |
+| Códigos reintentables | `retry()` usa `RetriesApiCalls::$retryableHttpCodes` (`RetriesApiCalls.php:27`); `abitech_payments.retry.retryable_http_codes` (`config/abitech_payments.php:79`) no se lee; tarea DT-08 |
+| Orden canónico | `StripeCheckoutDriver::purchase()` valida `success_url` y `cancel_url` después de `authenticate()` y `throttle()` (`StripeCheckoutDriver.php:94-105`); tarea DT-07 |
+| SDK fuera de `retry()` | `HandlesMercadoPagoWebhook.php:79-82`, `StripeCheckoutDriver.php:318` y `StripePaymentIntentsDriver.php:237,251` llaman al SDK sin `retry()` ni `throttle()`; tarea DT-03 |
 | Estado de avisos en Stripe | un evento que no es `payment_intent.*` ni `charge.refunded` devuelve `pending` en vez de `ignored` (`StripePaymentIntentsDriver.php:195-197`); tarea PL-01 |
-| Idempotencia en PaymentIntents | `purchase()` no envía `idempotencyKey` a Stripe (`StripePaymentIntentsDriver.php:91-100`) |
+| Idempotencia en PaymentIntents | `purchase()` no envía `idempotencyKey` a Stripe (`StripePaymentIntentsDriver.php:91-100`); tarea DT-01 |
 | Firma de Mercado Pago | opcional sin secreto (`HandlesMercadoPagoWebhook.php:51-55`) y sin tolerancia de `ts` (`VerifiesWebhookSignature.php:72-108`); tarea PL-02 |
 | Avisos que no son pago | devuelven `status: 'unknown'` (`HandlesMercadoPagoWebhook.php:69-76`); tarea PL-01 |
 | Middleware de idempotencia | `EnforceIdempotencyKey` solo exige la cabecera; tarea PL-03 lo elimina |
 | `incoming_webhook_logs` | migración publicable que PL-01 retira del paquete |
-| SDK ausente | `authenticate()` no comprueba el SDK (`MercadoPagoApiDriver.php:52-63`, `StripeCheckoutDriver.php:60-72`); sin él sale un `Error` de clase inexistente |
-| FQN y strings de clase | `\Stripe\StripeClient` (`StripeCheckoutDriver.php:37`, `StripePaymentIntentsDriver.php:33`) y `'Stripe\StripeClient'` (`StripeCheckoutDriver.php:70`, `StripePaymentIntentsDriver.php:61`), `'Stripe\Webhook'` y `\Stripe\Exception\*` (`VerifiesWebhookSignature.php:24,41,51-52`), `\RuntimeException` (`FakePaymentDriver.php:98,110,127,141`), `\Throwable` (`RetriesApiCalls.php:53`) |
-| `catch` mudo | `StripeCheckoutDriver.php:292` y `StripePaymentIntentsDriver.php:261` devuelven `[]` sin `Log::` (`tech/laravel`) |
-| PHP nativo | `DateTime` y `date()` en `MercadoPagoCheckoutDriver.php:221-268`, `StripeCheckoutDriver.php:384-447` y `FakePaymentDriver.php:214-255`; `array_map`/`array_filter` en `MercadoPagoCheckoutDriver.php:121,338,386`, `MercadoPagoApiDriver.php:116` y `HandlesMercadoPagoRefund.php:20` |
-| Comentarios de columna | 5 de más de 3 palabras (`create_currencies_table.php:25`, `create_payment_gateways_table.php:29`, `create_payment_gateway_methods_table.php:32,33,38`) |
-| Versión | `composer.json:6` declara `"version": "1.0.0"` (aviso de `composer validate`) y el repo no tiene tags |
-| Distribución | `.gitattributes:2` excluye `/.agent` (la carpeta es `.agents`) y no excluye `.claude/` ni `CLAUDE.md` (`tech/laravel-package.md` regla 8) |
-| Pruebas | sin pruebas de los 4 drivers reales, `handleWebhook()`, `EnforceIdempotencyKey`, `DatabaseConfigResolver` ni publicaciones del provider; `RetriesApiCallsTest.php:39,53` comprueban tras la excepción y nunca corren; `PaymentRequestTest.php` lleva 4 clases (`:13,72,88,102`) |
-| Docs | sin `docs/README.md`, nombres en inglés y sin prefijo de tipo (excepción de `project/documentation.md` regla 4); `docs/roadmap.md` es un plan de fases; `CHANGELOG.md:7` usa `[Unreleased]` en vez de `[Sin publicar]` |
-| Rangos sin probar | `composer.json:8-14` admite PHP `^8.2\|^8.3\|^8.4` e `illuminate/*` `^11.0\|^12.0\|^13.0`; Testbench `^9.0\|^10.0` (`:18`) no cubre Laravel 13 y el lock local solo prueba Laravel 12 con PHP 8.3 (`tech/laravel-package.md` regla 5) |
-| Dependencias de desarrollo | `composer audit` sobre el lock local da 20 avisos en `league/commonmark`, `guzzlehttp/guzzle`, `laravel/framework` y `league/flysystem` |
+| SDK ausente | `authenticate()` no comprueba el SDK (`MercadoPagoApiDriver.php:52-63`, `StripeCheckoutDriver.php:60-72`); sin él sale un `Error` de clase inexistente; tarea DT-06 |
+| FQN y strings de clase | `\Stripe\StripeClient` (`StripeCheckoutDriver.php:37`, `StripePaymentIntentsDriver.php:33`) y `'Stripe\StripeClient'` (`StripeCheckoutDriver.php:70`, `StripePaymentIntentsDriver.php:61`), `'Stripe\Webhook'` y `\Stripe\Exception\*` (`VerifiesWebhookSignature.php:24,41,51-52`), `\RuntimeException` (`FakePaymentDriver.php:98,110,127,141`), `\Throwable` (`RetriesApiCalls.php:53`); tarea DT-12 |
+| `catch` mudo | `StripeCheckoutDriver.php:292` y `StripePaymentIntentsDriver.php:261` devuelven `[]` sin `Log::` (`tech/laravel`); tarea DT-09 |
+| PHP nativo | `DateTime` y `date()` en `MercadoPagoCheckoutDriver.php:221-268`, `StripeCheckoutDriver.php:384-447` y `FakePaymentDriver.php:214-255`; `array_map`/`array_filter` en `MercadoPagoCheckoutDriver.php:121,338,386`, `MercadoPagoApiDriver.php:116` y `HandlesMercadoPagoRefund.php:20`; tarea DT-12 |
+| Comentarios de columna | 5 de más de 3 palabras (`create_currencies_table.php:25`, `create_payment_gateways_table.php:29`, `create_payment_gateway_methods_table.php:32,33,38`); tarea DT-13 |
+| Versión | `composer.json:6` declara `"version": "1.0.0"` (aviso de `composer validate`) y el repo no tiene tags; tarea DT-14 |
+| Distribución | `.gitattributes:2` excluye `/.agent` (la carpeta es `.agents`) y no excluye `.claude/` ni `CLAUDE.md` (`tech/laravel-package.md` regla 8); tarea DT-14 |
+| Pruebas | sin pruebas de los 4 drivers reales, `handleWebhook()`, `EnforceIdempotencyKey`, `DatabaseConfigResolver` ni publicaciones del provider; `RetriesApiCallsTest.php:39,53` comprueban tras la excepción y nunca corren; `PaymentRequestTest.php` lleva 4 clases (`:13,72,88,102`); tarea DT-10 |
+| Docs | sin `docs/README.md`, nombres en inglés y sin prefijo de tipo (excepción de `project/documentation.md` regla 4); `docs/roadmap.md` es un plan de fases; `CHANGELOG.md:7` usa `[Unreleased]` en vez de `[Sin publicar]`; tarea DT-15 |
+| Rangos sin probar | `composer.json:8-14` admite PHP `^8.2\|^8.3\|^8.4` e `illuminate/*` `^11.0\|^12.0\|^13.0`; Testbench `^9.0\|^10.0` (`:18`) no cubre Laravel 13 y el lock local solo prueba Laravel 12 con PHP 8.3 (`tech/laravel-package.md` regla 5); tarea DT-11 |
+| Dependencias de desarrollo | `composer audit` sobre el lock local da 20 avisos en `league/commonmark`, `guzzlehttp/guzzle`, `laravel/framework` y `league/flysystem`; tarea DT-05 |
