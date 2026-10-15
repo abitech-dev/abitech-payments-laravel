@@ -101,14 +101,13 @@ Las tareas viven en el archivo de tareas de §1.
 
 | Tema | Estado |
 |---|---|
-| Estado de avisos en Stripe | un evento que no es `payment_intent.*` ni `charge.refunded` devuelve `pending` en vez de `ignored` (`StripePaymentIntentsDriver.php:192-194`); tarea PL-01 |
+| Estado de avisos en Stripe | un evento que no es `payment_intent.*` ni `charge.refunded` devuelve `pending` en vez de `ignored` (`StripePaymentIntentsDriver.php:191-193`); tarea PL-01 |
 | Firma de Mercado Pago | opcional sin secreto (`HandlesMercadoPagoWebhook.php:50-54`) y sin tolerancia de `ts` (`VerifiesWebhookSignature.php:75-111`); tarea PL-02 |
 | Avisos que no son pago | devuelven `status: 'unknown'` (`HandlesMercadoPagoWebhook.php:68-75`); tarea PL-01 |
 | Middleware de idempotencia | `EnforceIdempotencyKey` solo exige la cabecera; tarea PL-03 lo elimina |
 | `incoming_webhook_logs` | migración publicable que PL-01 retira del paquete |
-| `catch` mudo | `StripeCheckoutDriver.php:289` y `StripePaymentIntentsDriver.php:259` devuelven `[]` sin `Log::` (`tech/laravel`); tarea DT-09 |
 | Versión | `composer.json:6` declara `"version": "1.0.0"` (aviso de `composer validate`) y el repo no tiene tags; tarea DT-14 |
 | Distribución | `.gitattributes:2` excluye `/.agent` (la carpeta es `.agents`) y no excluye `.claude/` ni `CLAUDE.md` (`tech/laravel-package.md` regla 8); tarea DT-14 |
 | Pruebas | de los 4 drivers reales solo se prueban `handleWebhook()`, el `health()` de Mercado Pago y, en `purchase()`, la clave de idempotencia y la ausencia de eventos (`tests/Feature/Drivers/`); sin pruebas de `EnforceIdempotencyKey`, `DatabaseConfigResolver` ni publicaciones del provider; `RetriesApiCallsTest.php:39,53` comprueban tras la excepción y nunca corren; `PaymentRequestTest.php` lleva 4 clases (`:16,94,110,124`); tarea DT-10 |
 | Docs | sin `docs/README.md`, nombres en inglés y sin prefijo de tipo; excepción vigente de `project/documentation.md` regla 4 |
-| Rangos sin probar | `composer.json:8-16` admite PHP `^8.2\|^8.3\|^8.4` e `illuminate/*` `^11.0\|^12.0\|^13.0`; Testbench `^9.0\|^10.0` (`:20`) no cubre Laravel 13 y el lock local solo prueba Laravel 12 con PHP 8.3 (`tech/laravel-package.md` regla 5); tarea DT-11 |
+| Rangos sin probar | `composer.json:8-17` admite PHP `^8.2\|^8.3\|^8.4` e `illuminate/*` `^11.0\|^12.0\|^13.0`; Testbench `^9.0\|^10.0` (`:21`) no cubre Laravel 13 y el lock local solo prueba Laravel 12 con PHP 8.3 (`tech/laravel-package.md` regla 5); tarea DT-11 |

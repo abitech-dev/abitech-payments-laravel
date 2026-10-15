@@ -17,7 +17,6 @@ use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
-use Exception;
 use Illuminate\Support\Carbon;
 use Stripe\StripeClient;
 
@@ -286,7 +285,11 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             }
 
             return $this->readCardFromPaymentIntent($object['id'] ?? null);
-        } catch (Exception) {
+        } catch (PaymentGatewayException $exception) {
+            $this->logRecoveredFailure('No se pudo leer la tarjeta del PaymentIntent de Stripe.', [
+                'payment_intent' => $object['id'] ?? null,
+            ], $exception);
+
             return ['payment_method' => ($object['payment_method_types'][0] ?? null)];
         }
     }

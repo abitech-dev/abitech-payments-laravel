@@ -14,7 +14,6 @@ use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
-use Exception;
 use Stripe\StripeClient;
 
 class StripePaymentIntentsDriver extends AbstractPaymentDriver
@@ -256,7 +255,11 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             }
 
             return [];
-        } catch (Exception) {
+        } catch (PaymentGatewayException $exception) {
+            $this->logRecoveredFailure('No se pudo leer la tarjeta del PaymentIntent de Stripe.', [
+                'payment_intent' => $paymentIntentId,
+            ], $exception);
+
             return [];
         }
     }

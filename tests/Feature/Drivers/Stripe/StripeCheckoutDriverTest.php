@@ -14,6 +14,7 @@ use Abitech\Payments\Tests\TestCase;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 
 class StripeCheckoutDriverTest extends TestCase
 {
@@ -139,6 +140,23 @@ class StripeCheckoutDriverTest extends TestCase
         }
 
         $this->assertSame(0, $this->app->make(RateLimiter::class)->attempts('abitech_payments:stripe_checkout:purchase'));
+    }
+
+    public function test_a_failed_card_lookup_is_logged_without_credentials(): void
+    {
+        Log::spy();
+        FakeStripeHttpClient::install([[400, ['error' => ['message' => 'No such payment_intent', 'type' => 'invalid_request_error']]]]);
+
+        $result = $this->driver()->handleWebhook($this->succeededWebhook());
+
+        $this->assertSame('completed', $result->status);
+        $this->assertNull($result->cardLastFour);
+        Log::shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context) => $context['payment_intent'] === 'pi_1'
+                && $context['gateway'] === 'stripe_checkout'
+                && str_contains($context['exception'], 'No such payment_intent')
+                && ! str_contains(json_encode($context), 'sk_test_x')
+        );
     }
 
     private function driver(): StripeCheckoutDriver

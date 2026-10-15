@@ -73,7 +73,9 @@ y reaccionar al resultado es de la app host.
    comparar repetidos es del host; el middleware `abitech.idempotency`
    no se amplía.
 8. **Credenciales.** Solo desde `$this->config`, nunca en un mensaje de
-   excepción, en `raw` ni en un log.
+   excepción, en `raw` ni en un log. Una falla que el driver absorbe se
+   registra con `logRecoveredFailure()`, que guarda el mensaje sin la
+   traza.
 9. **Estado en memoria.** `PaymentManager` es `scoped` y guarda cada
    driver creado durante la petición; un driver no guarda tenant, usuario
    ni petición en propiedades, y `forTenant()` devuelve otra instancia.

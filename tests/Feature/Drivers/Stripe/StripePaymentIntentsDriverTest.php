@@ -13,6 +13,7 @@ use Abitech\Payments\Tests\Doubles\StripeWebhookRequest;
 use Abitech\Payments\Tests\TestCase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 
 class StripePaymentIntentsDriverTest extends TestCase
 {
@@ -142,6 +143,23 @@ class StripePaymentIntentsDriverTest extends TestCase
             $this->assertSame([], $transport->requests);
             $this->assertStringContainsString('composer require stripe/stripe-php', $exception->getMessage());
         }
+    }
+
+    public function test_a_failed_card_lookup_is_logged_without_credentials(): void
+    {
+        Log::spy();
+        FakeStripeHttpClient::install([[400, ['error' => ['message' => 'No such payment_intent', 'type' => 'invalid_request_error']]]]);
+
+        $result = $this->driver()->handleWebhook($this->succeededWebhook());
+
+        $this->assertSame('completed', $result->status);
+        $this->assertNull($result->cardLastFour);
+        Log::shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context) => $context['payment_intent'] === 'pi_1'
+                && $context['gateway'] === 'stripe_paymentintents'
+                && str_contains($context['exception'], 'No such payment_intent')
+                && ! str_contains(json_encode($context), 'sk_test_x')
+        );
     }
 
     private function driver(): StripePaymentIntentsDriver

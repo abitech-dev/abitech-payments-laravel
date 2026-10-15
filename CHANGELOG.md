@@ -28,6 +28,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Corregido
 
+- Los webhooks de Stripe que no logran leer la tarjeta registran un
+  `Log::warning()` con la pasarela, el PaymentIntent y el error; antes el fallo
+  se descartaba. `illuminate/log` pasa a `require`.
 - `abitech_payments.retry.retryable_http_codes`, o la misma clave en las
   credenciales de la pasarela, decide qué códigos HTTP reintenta `retry()`;
   antes se ignoraba y regían siempre 429, 500, 502, 503 y 504.

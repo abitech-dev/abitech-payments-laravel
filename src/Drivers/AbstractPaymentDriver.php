@@ -10,6 +10,7 @@ use Abitech\Payments\Concerns\ValidatesAmounts;
 use Abitech\Payments\Contracts\PaymentGatewayInterface;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\Exceptions\UnsupportedCurrencyException;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Clase base para todos los drivers de pasarelas de pago.
@@ -65,6 +66,21 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
                 "El SDK {$package} no está instalado. Ejecute composer require {$package}."
             );
         }
+    }
+
+    /**
+     * Registra una falla que el driver absorbe. Solo guarda el mensaje de la
+     * excepción, porque la traza puede llevar credenciales en sus argumentos.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    protected function logRecoveredFailure(string $message, array $context, PaymentGatewayException $exception): void
+    {
+        Log::warning($message, [
+            'gateway' => $this->getGatewayName(),
+            ...$context,
+            'exception' => $exception->getMessage(),
+        ]);
     }
 
     /**
