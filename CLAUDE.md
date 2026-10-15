@@ -101,7 +101,6 @@ Las tareas viven en el archivo de tareas de §1.
 
 | Tema | Estado |
 |---|---|
-| Códigos reintentables | `retry()` usa `RetriesApiCalls::$retryableHttpCodes` (`RetriesApiCalls.php:28`); `abitech_payments.retry.retryable_http_codes` (`config/abitech_payments.php:79`) no se lee; tarea DT-08 |
 | Estado de avisos en Stripe | un evento que no es `payment_intent.*` ni `charge.refunded` devuelve `pending` en vez de `ignored` (`StripePaymentIntentsDriver.php:192-194`); tarea PL-01 |
 | Firma de Mercado Pago | opcional sin secreto (`HandlesMercadoPagoWebhook.php:50-54`) y sin tolerancia de `ts` (`VerifiesWebhookSignature.php:75-111`); tarea PL-02 |
 | Avisos que no son pago | devuelven `status: 'unknown'` (`HandlesMercadoPagoWebhook.php:68-75`); tarea PL-01 |

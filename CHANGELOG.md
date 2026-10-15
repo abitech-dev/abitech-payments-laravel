@@ -28,6 +28,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ### Corregido
 
+- `abitech_payments.retry.retryable_http_codes`, o la misma clave en las
+  credenciales de la pasarela, decide qué códigos HTTP reintenta `retry()`;
+  antes se ignoraba y regían siempre 429, 500, 502, 503 y 504.
 - Stripe Checkout valida `success_url` y `cancel_url` antes de autenticar y de
   contar la llamada en el limitador.
 - Sin el SDK de la pasarela instalado, `authenticate()` lanza

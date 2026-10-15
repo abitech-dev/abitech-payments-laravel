@@ -39,6 +39,9 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
         $this->maxRetries = (int) ($config['max_retries'] ?? $globalRetry['max_attempts'] ?? $this->maxRetries);
         $this->retryBaseDelayMs = (int) ($config['retry_base_delay_ms'] ?? $globalRetry['base_delay_ms'] ?? $this->retryBaseDelayMs);
         $this->retryMultiplier = (float) ($config['retry_multiplier'] ?? $globalRetry['multiplier'] ?? $this->retryMultiplier);
+        $this->retryableHttpCodes = collect($config['retryable_http_codes'] ?? $globalRetry['retryable_http_codes'] ?? $this->retryableHttpCodes)
+            ->map(fn ($code) => (int) $code)
+            ->all();
         $this->maxRequestsPerMinute = (int) ($config['max_requests_per_minute'] ?? $globalRateLimit['max_requests_per_minute'] ?? $this->maxRequestsPerMinute);
 
         if (!empty($globalRateLimit['cache_prefix'])) {

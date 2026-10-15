@@ -61,7 +61,8 @@ y reaccionar al resultado es de la app host.
      `constructEvent`; Mercado Pago con `ts`).
    - El `WebhookResult` lleva el evento crudo de la pasarela en `raw`.
 6. **Errores reintentables.** `retry()` reintenta solo los códigos de
-   `RetriesApiCalls::$retryableHttpCodes` (429, 500, 502, 503 y 504) con
+   `abitech_payments.retry.retryable_http_codes` (por defecto 429, 500,
+   502, 503 y 504, los de `RetriesApiCalls::$retryableHttpCodes`) con
    backoff exponencial. La excepción del SDK se envuelve en
    `PaymentGatewayException` con su código HTTP real, para que un 4xx no
    se reintente.

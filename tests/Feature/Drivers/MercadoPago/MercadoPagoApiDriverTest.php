@@ -100,6 +100,18 @@ class MercadoPagoApiDriverTest extends TestCase
         $this->assertCount(2, $mercadoPago->requests);
     }
 
+    public function test_the_retryable_codes_come_from_the_config(): void
+    {
+        config(['abitech_payments.retry.retryable_http_codes' => [418]]);
+        $mercadoPago = FakeMercadoPagoHttpClient::install([
+            [418, ['message' => 'Soy una tetera']],
+            [404, ['message' => 'Payment not found']],
+        ]);
+
+        $this->assertTrue($this->driver()->health());
+        $this->assertCount(2, $mercadoPago->requests);
+    }
+
     public function test_the_webhook_payment_lookup_retries_a_503(): void
     {
         $mercadoPago = FakeMercadoPagoHttpClient::install([
