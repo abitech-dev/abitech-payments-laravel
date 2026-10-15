@@ -13,7 +13,7 @@ use Abitech\Payments\Http\Middleware\EnforceIdempotencyKey;
 /**
  * ServiceProvider del paquete abitech/payments-laravel.
  *
- * Registra el PaymentManager como singleton, inyecta el ConfigResolver
+ * Registra el PaymentManager por petición (scoped), inyecta el ConfigResolver
  * si esta disponible, publica archivos de configuracion y migraciones,
  * y registra el middleware de idempotencia.
  */
@@ -26,7 +26,8 @@ class PaymentsServiceProvider extends ServiceProvider
             'abitech_payments'
         );
 
-        $this->app->singleton(PaymentManager::class, function () {
+        // Scoped, para que Octane no conserve drivers con credenciales viejas.
+        $this->app->scoped(PaymentManager::class, function () {
             return new PaymentManager($this->app);
         });
 

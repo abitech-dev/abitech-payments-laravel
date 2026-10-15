@@ -14,6 +14,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Stripe: las monedas sin decimales (JPY, CLP, KRW…) se envían y se leen sin
   multiplicar por 100 (`ConvertsStripeAmounts`); un reembolso parcial toma la
   moneda del PaymentIntent.
+- `PaymentManager` se registra `scoped`: bajo Octane cada petición resuelve sus
+  drivers con las credenciales vigentes.
 
 ## [1.0.0] - 2026-07-03
 
