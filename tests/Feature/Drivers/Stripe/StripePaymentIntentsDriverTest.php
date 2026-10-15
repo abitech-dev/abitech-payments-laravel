@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Abitech\Payments\Tests\Feature\Drivers\Stripe;
 
-use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\Drivers\Stripe\StripePaymentIntentsDriver;
+use Abitech\Payments\DTO\PaymentRequest;
+use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeStripeHttpClient;
 use Abitech\Payments\Tests\Doubles\StripeWebhookRequest;
 use Abitech\Payments\Tests\TestCase;
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class StripePaymentIntentsDriverTest extends TestCase
 {
@@ -160,6 +163,164 @@ class StripePaymentIntentsDriverTest extends TestCase
                 && str_contains($context['exception'], 'No such payment_intent')
                 && ! str_contains(json_encode($context), 'sk_test_x')
         );
+    }
+
+    public function test_a_declined_card_is_surfaced_with_its_http_status(): void
+    {
+        FakeStripeHttpClient::install([[402, ['error' => ['type' => 'card_error', 'code' => 'card_declined', 'message' => 'Your card was declined.']]]]);
+
+        try {
+            $this->driver()->purchase(self::cardPayment());
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(402, $exception->getCode());
+            $this->assertSame('Your card was declined.', $exception->getMessage());
+        }
+    }
+
+    public function test_an_intent_that_requires_action_is_pending_with_its_redirect(): void
+    {
+        FakeStripeHttpClient::install([[200, [
+            'id' => 'pi_1',
+            'object' => 'payment_intent',
+            'status' => 'requires_action',
+            'next_action' => ['redirect_to_url' => ['url' => 'https://hooks.stripe.com/3ds']],
+        ]]]);
+
+        $response = $this->driver()->purchase(self::cardPayment());
+
+        $this->assertTrue($response->success);
+        $this->assertSame('pending', $response->status);
+        $this->assertSame('https://hooks.stripe.com/3ds', $response->redirectUrl);
+    }
+
+    public function test_a_full_refund_only_names_the_payment_intent(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 're_1', 'object' => 'refund']]]);
+
+        $this->assertTrue($this->driver()->refund('pi_1'));
+        $this->assertSame(['payment_intent' => 'pi_1'], $stripe->requests[0]['params']);
+    }
+
+    public function test_a_payout_transfers_the_amount_in_cents(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 'tr_1', 'object' => 'transfer']]]);
+
+        $response = $this->driver()->payout(self::payout());
+
+        $this->assertSame('tr_1', $response->payoutId);
+        $this->assertSame(2050, $stripe->requests[0]['params']['amount']);
+    }
+
+    public function test_a_refunded_charge_webhook_is_normalized(): void
+    {
+        FakeStripeHttpClient::install([]);
+        $request = StripeWebhookRequest::signed('charge.refunded', [
+            'id' => 'ch_1',
+            'object' => 'charge',
+            'payment_intent' => 'pi_1',
+            'amount_refunded' => 500,
+            'currency' => 'usd',
+        ], self::WEBHOOK_SECRET);
+
+        $result = $this->driver()->handleWebhook($request);
+
+        $this->assertSame('refunded', $result->status);
+        $this->assertSame('pi_1', $result->transactionId);
+        $this->assertSame('5.00', $result->amount);
+    }
+
+    /**
+     * @return array<string, array{0: Closure(StripePaymentIntentsDriver): mixed, 1: list<array<string, mixed>>}>
+     */
+    public static function operations(): array
+    {
+        return [
+            'purchase' => [static fn (StripePaymentIntentsDriver $driver) => $driver->purchase(self::cardPayment()), [['id' => 'pi_1', 'object' => 'payment_intent', 'status' => 'succeeded']]],
+            'refund' => [static fn (StripePaymentIntentsDriver $driver) => $driver->refund('pi_1'), [['id' => 're_1', 'object' => 'refund']]],
+            'payout' => [static fn (StripePaymentIntentsDriver $driver) => $driver->payout(self::payout()), [['id' => 'tr_1', 'object' => 'transfer']]],
+            'health' => [static fn (StripePaymentIntentsDriver $driver) => $driver->health(), [['object' => 'balance']]],
+        ];
+    }
+
+    #[DataProvider('operations')]
+    public function test_a_client_error_is_surfaced_without_retrying(Closure $operation): void
+    {
+        $stripe = FakeStripeHttpClient::install([[400, ['error' => ['message' => 'Solicitud invalida', 'type' => 'invalid_request_error']]]]);
+
+        try {
+            $operation($this->driver());
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(400, $exception->getCode());
+        }
+
+        $this->assertCount(1, $stripe->requests);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $bodies
+     */
+    #[DataProvider('operations')]
+    public function test_a_503_is_retried(Closure $operation, array $bodies): void
+    {
+        $stripe = FakeStripeHttpClient::install([
+            [503, ['error' => ['message' => 'Servicio no disponible', 'type' => 'api_error']]],
+            ...collect($bodies)->map(fn (array $body) => [200, $body])->all(),
+        ]);
+
+        $operation($this->driver());
+
+        $this->assertCount(1 + count($bodies), $stripe->requests);
+    }
+
+    public function test_a_forged_webhook_signature_is_rejected_as_forbidden(): void
+    {
+        $request = StripeWebhookRequest::signed('payment_intent.succeeded', ['id' => 'pi_1'], 'whsec_ajeno');
+
+        $this->assertWebhookRejected($request, 403);
+    }
+
+    public function test_a_webhook_without_signature_header_is_rejected_as_forbidden(): void
+    {
+        $this->assertWebhookRejected(Request::create('/webhook', 'POST', content: '{}'), 403);
+    }
+
+    public function test_a_webhook_without_configured_secret_is_rejected_before_reading_it(): void
+    {
+        config(['abitech_payments.gateways.stripe' => ['secret' => 'sk_test_x']]);
+
+        $this->assertWebhookRejected($this->succeededWebhook(), 0);
+    }
+
+    private function assertWebhookRejected(Request $request, int $status): void
+    {
+        $stripe = FakeStripeHttpClient::install([]);
+
+        try {
+            $this->driver()->handleWebhook($request);
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame($status, $exception->getCode());
+        }
+
+        $this->assertSame([], $stripe->requests);
+    }
+
+    private static function cardPayment(): PaymentRequest
+    {
+        return new PaymentRequest(
+            amount: '10.00',
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'pm_1',
+        );
+    }
+
+    private static function payout(): PayoutRequest
+    {
+        return new PayoutRequest(amount: '20.50', currency: 'USD', recipient: 'acct_1', description: 'Liquidacion');
     }
 
     private function driver(): StripePaymentIntentsDriver

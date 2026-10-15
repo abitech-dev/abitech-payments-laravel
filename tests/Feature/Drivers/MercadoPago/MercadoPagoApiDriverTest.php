@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Abitech\Payments\Tests\Feature\Drivers\MercadoPago;
 
-use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\Drivers\MercadoPago\MercadoPagoApiDriver;
+use Abitech\Payments\DTO\PaymentRequest;
+use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeMercadoPagoHttpClient;
 use Abitech\Payments\Tests\TestCase;
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class MercadoPagoApiDriverTest extends TestCase
 {
@@ -141,6 +144,131 @@ class MercadoPagoApiDriverTest extends TestCase
             $this->assertSame([], $transport->requests);
             $this->assertStringContainsString('composer require mercadopago/dx-php', $exception->getMessage());
         }
+    }
+
+    public function test_an_approved_purchase_is_completed(): void
+    {
+        FakeMercadoPagoHttpClient::install([[201, ['id' => 123, 'status' => 'approved']]]);
+
+        $response = $this->driver()->purchase(self::cardPayment());
+
+        $this->assertTrue($response->success);
+        $this->assertSame('completed', $response->status);
+        $this->assertSame('123', $response->transactionId);
+    }
+
+    public function test_a_rejected_card_returns_a_failed_response(): void
+    {
+        FakeMercadoPagoHttpClient::install([[201, ['id' => 124, 'status' => 'rejected', 'status_detail' => 'cc_rejected_insufficient_amount']]]);
+
+        $response = $this->driver()->purchase(self::cardPayment());
+
+        $this->assertFalse($response->success);
+        $this->assertSame('failed', $response->status);
+        $this->assertSame('cc_rejected_insufficient_amount', $response->errorMessage);
+    }
+
+    public function test_a_full_refund_sends_an_empty_body(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, ['id' => 1, 'status' => 'approved']]]);
+
+        $this->assertTrue($this->driver()->refund('123'));
+        $this->assertSame('/v1/payments/123/refunds', $mercadoPago->requests[0]->getUri());
+        $this->assertSame('[]', $mercadoPago->requests[0]->getPayload());
+    }
+
+    public function test_an_approved_payout_is_completed(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, ['id' => 125, 'status' => 'approved']]]);
+
+        $response = $this->driver()->payout(self::payout());
+
+        $this->assertTrue($response->success);
+        $this->assertSame('completed', $response->status);
+        $this->assertStringContainsString('"transaction_amount":20.5', $mercadoPago->requests[0]->getPayload());
+    }
+
+    /**
+     * @return array<string, array{0: Closure(MercadoPagoApiDriver): mixed, 1: array<string, mixed>}>
+     */
+    public static function operations(): array
+    {
+        return [
+            'purchase' => [static fn (MercadoPagoApiDriver $driver) => $driver->purchase(self::cardPayment()), ['id' => 123, 'status' => 'approved']],
+            'refund' => [static fn (MercadoPagoApiDriver $driver) => $driver->refund('123'), ['id' => 1, 'status' => 'approved']],
+            'payout' => [static fn (MercadoPagoApiDriver $driver) => $driver->payout(self::payout()), ['id' => 125, 'status' => 'approved']],
+        ];
+    }
+
+    #[DataProvider('operations')]
+    public function test_a_client_error_is_surfaced_without_retrying(Closure $operation): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[400, ['message' => 'Solicitud invalida']]]);
+
+        try {
+            $operation($this->driver());
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(400, $exception->getCode());
+        }
+
+        $this->assertCount(1, $mercadoPago->requests);
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     */
+    #[DataProvider('operations')]
+    public function test_a_503_is_retried(Closure $operation, array $body): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[503, ['message' => 'Servicio no disponible']], [201, $body]]);
+
+        $operation($this->driver());
+
+        $this->assertCount(2, $mercadoPago->requests);
+    }
+
+    public function test_a_forged_webhook_signature_is_rejected_as_forbidden(): void
+    {
+        $request = Request::create('/webhook', 'POST', ['type' => 'payment', 'data' => ['id' => '123']]);
+        $request->headers->add(['x-signature' => 'ts=1700000000,v1=falsa', 'x-request-id' => 'req-1']);
+
+        $this->assertWebhookRejectedWith(403, $request);
+    }
+
+    public function test_a_webhook_without_signature_headers_is_rejected_as_forbidden(): void
+    {
+        $this->assertWebhookRejectedWith(403, Request::create('/webhook', 'POST', ['type' => 'payment', 'data' => ['id' => '123']]));
+    }
+
+    private function assertWebhookRejectedWith(int $status, Request $request): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([]);
+
+        try {
+            $this->driver()->handleWebhook($request);
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame($status, $exception->getCode());
+        }
+
+        $this->assertSame([], $mercadoPago->requests);
+    }
+
+    private static function cardPayment(): PaymentRequest
+    {
+        return new PaymentRequest(
+            amount: '50.50',
+            currency: 'PEN',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'tok_1',
+        );
+    }
+
+    private static function payout(): PayoutRequest
+    {
+        return new PayoutRequest(amount: '20.50', currency: 'PEN', recipient: 'vendedor@example.com', description: 'Liquidacion');
     }
 
     private function driver(): MercadoPagoApiDriver

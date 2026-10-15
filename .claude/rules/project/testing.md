@@ -19,7 +19,9 @@ paquete sin app host; los comandos están en `CLAUDE.md` §2.
 | DTO | `tests/Unit/DTOs/PaymentRequestTest.php` |
 | Resolución de drivers | `tests/Feature/PaymentManagerTest.php` |
 | Driver falso o su API de aserciones | `tests/Feature/FakePaymentDriverTest.php` |
-| Driver real con el SDK simulado | `tests/Feature/Drivers/Stripe/StripePaymentIntentsDriverTest.php` |
+| Driver real con el SDK simulado | `tests/Feature/Drivers/Stripe/StripePaymentIntentsDriverTest.php` (`operations()` cubre rechazo y 503 por operación) |
+| Resolver de credenciales | `tests/Feature/Resolvers/DatabaseConfigResolverTest.php` |
+| Provider y publicaciones | `tests/Feature/Providers/PaymentsServiceProviderTest.php` |
 
 ## Reglas
 

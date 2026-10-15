@@ -6,15 +6,20 @@ namespace Abitech\Payments\Tests\Feature\Drivers\Stripe;
 
 use Abitech\Payments\Drivers\Stripe\StripeCheckoutDriver;
 use Abitech\Payments\DTO\PaymentRequest;
+use Abitech\Payments\DTO\PayoutRequest;
+use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeStripeHttpClient;
 use Abitech\Payments\Tests\Doubles\StripeWebhookRequest;
 use Abitech\Payments\Tests\TestCase;
+use Closure;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class StripeCheckoutDriverTest extends TestCase
 {
@@ -157,6 +162,230 @@ class StripeCheckoutDriverTest extends TestCase
                 && str_contains($context['exception'], 'No such payment_intent')
                 && ! str_contains(json_encode($context), 'sk_test_x')
         );
+    }
+
+    public function test_purchase_returns_the_checkout_session_url(): void
+    {
+        FakeStripeHttpClient::install([[200, self::checkoutSession()]]);
+
+        $response = $this->driver()->purchase(self::checkout());
+
+        $this->assertSame('cs_1', $response->transactionId);
+        $this->assertSame('pending', $response->status);
+        $this->assertSame('https://checkout.stripe.com/c/cs_1', $response->redirectUrl);
+    }
+
+    public function test_a_full_refund_only_names_the_payment_intent(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 're_1', 'object' => 'refund']]]);
+
+        $this->assertTrue($this->driver()->refund('pi_1'));
+        $this->assertSame(['payment_intent' => 'pi_1'], $stripe->requests[0]['params']);
+    }
+
+    public function test_a_payout_transfers_the_amount_in_cents(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 'tr_1', 'object' => 'transfer']]]);
+
+        $response = $this->driver()->payout(self::payout());
+
+        $this->assertSame('tr_1', $response->payoutId);
+        $this->assertSame(2050, $stripe->requests[0]['params']['amount']);
+    }
+
+    public function test_create_subscription_creates_customer_price_and_subscription(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, self::customer()], [200, self::price()], [200, self::subscriptionObject()]]);
+
+        $response = $this->driver()->createSubscription(self::subscription());
+
+        $this->assertSame('sub_1', $response->subscriptionId);
+        $this->assertSame('active', $response->status);
+        $this->assertSame(1767225600, Carbon::parse($response->nextBillingDate)->getTimestamp());
+        $this->assertSame(4990, $stripe->requests[1]['params']['unit_amount']);
+    }
+
+    public function test_cancel_subscription_returns_the_cancellation_time(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 'sub_1', 'object' => 'subscription', 'status' => 'canceled']]]);
+
+        $response = $this->driver()->cancelSubscription('sub_1');
+
+        $this->assertSame('canceled', $response->status);
+        $this->assertNotNull($response->canceledAt);
+        $this->assertSame('delete', $stripe->requests[0]['method']);
+    }
+
+    public function test_get_subscription_reads_the_next_billing_date(): void
+    {
+        FakeStripeHttpClient::install([[200, self::subscriptionObject()]]);
+
+        $response = $this->driver()->getSubscription('sub_1');
+
+        $this->assertSame(1767225600, Carbon::parse($response->nextBillingDate)->getTimestamp());
+    }
+
+    public function test_a_completed_checkout_session_webhook_reads_the_expanded_card(): void
+    {
+        $stripe = FakeStripeHttpClient::install([]);
+        $request = StripeWebhookRequest::signed('checkout.session.completed', [
+            'id' => 'cs_1',
+            'object' => 'checkout.session',
+            'amount_total' => 1999,
+            'currency' => 'usd',
+            'payment_intent' => ['latest_charge' => ['payment_method_details' => ['card' => ['brand' => 'visa', 'last4' => '4242']]]],
+        ], self::WEBHOOK_SECRET);
+
+        $result = $this->driver()->handleWebhook($request);
+
+        $this->assertSame('completed', $result->status);
+        $this->assertSame('19.99', $result->amount);
+        $this->assertSame('4242', $result->cardLastFour);
+        $this->assertSame([], $stripe->requests);
+    }
+
+    public function test_an_unrelated_event_is_ignored(): void
+    {
+        FakeStripeHttpClient::install([]);
+
+        $result = $this->driver()->handleWebhook(StripeWebhookRequest::signed('customer.created', ['id' => 'cus_1'], self::WEBHOOK_SECRET));
+
+        $this->assertSame('ignored', $result->status);
+    }
+
+    /**
+     * @return array<string, array{0: Closure(StripeCheckoutDriver): mixed, 1: list<array<string, mixed>>}>
+     */
+    public static function operations(): array
+    {
+        return [
+            'purchase' => [static fn (StripeCheckoutDriver $driver) => $driver->purchase(self::checkout()), [self::checkoutSession()]],
+            'refund' => [static fn (StripeCheckoutDriver $driver) => $driver->refund('pi_1'), [['id' => 're_1', 'object' => 'refund']]],
+            'payout' => [static fn (StripeCheckoutDriver $driver) => $driver->payout(self::payout()), [['id' => 'tr_1', 'object' => 'transfer']]],
+            'health' => [static fn (StripeCheckoutDriver $driver) => $driver->health(), [['object' => 'balance']]],
+            'createSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->createSubscription(self::subscription()), [self::customer(), self::price(), self::subscriptionObject()]],
+            'cancelSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->cancelSubscription('sub_1'), [self::subscriptionObject()]],
+            'updateSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->updateSubscription('sub_1', self::subscription()), [self::subscriptionObject()]],
+            'getSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->getSubscription('sub_1'), [self::subscriptionObject()]],
+        ];
+    }
+
+    #[DataProvider('operations')]
+    public function test_a_client_error_is_surfaced_without_retrying(Closure $operation): void
+    {
+        $stripe = FakeStripeHttpClient::install([[400, ['error' => ['message' => 'Solicitud invalida', 'type' => 'invalid_request_error']]]]);
+
+        try {
+            $operation($this->driver());
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(400, $exception->getCode());
+        }
+
+        $this->assertCount(1, $stripe->requests);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $bodies
+     */
+    #[DataProvider('operations')]
+    public function test_a_503_is_retried(Closure $operation, array $bodies): void
+    {
+        $stripe = FakeStripeHttpClient::install([
+            [503, ['error' => ['message' => 'Servicio no disponible', 'type' => 'api_error']]],
+            ...collect($bodies)->map(fn (array $body) => [200, $body])->all(),
+        ]);
+
+        $operation($this->driver());
+
+        $this->assertCount(1 + count($bodies), $stripe->requests);
+    }
+
+    public function test_a_forged_webhook_signature_is_rejected_as_forbidden(): void
+    {
+        $request = StripeWebhookRequest::signed('payment_intent.succeeded', ['id' => 'pi_1'], 'whsec_ajeno');
+
+        $this->assertWebhookRejected($request, 403);
+    }
+
+    public function test_a_webhook_without_signature_header_is_rejected_as_forbidden(): void
+    {
+        $this->assertWebhookRejected(Request::create('/webhook', 'POST', content: '{}'), 403);
+    }
+
+    public function test_a_webhook_without_configured_secret_is_rejected_before_reading_it(): void
+    {
+        config(['abitech_payments.gateways.stripe' => ['secret' => 'sk_test_x']]);
+
+        $this->assertWebhookRejected($this->succeededWebhook(), 0);
+    }
+
+    private function assertWebhookRejected(Request $request, int $status): void
+    {
+        $stripe = FakeStripeHttpClient::install([]);
+
+        try {
+            $this->driver()->handleWebhook($request);
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame($status, $exception->getCode());
+        }
+
+        $this->assertSame([], $stripe->requests);
+    }
+
+    private static function checkout(): PaymentRequest
+    {
+        return new PaymentRequest(
+            amount: '10.00',
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            successUrl: 'https://app.example.com/ok',
+            cancelUrl: 'https://app.example.com/cancelado',
+        );
+    }
+
+    private static function payout(): PayoutRequest
+    {
+        return new PayoutRequest(amount: '20.50', currency: 'USD', recipient: 'acct_1', description: 'Liquidacion');
+    }
+
+    private static function subscription(): SubscriptionRequest
+    {
+        return new SubscriptionRequest(planId: 'plan-mensual', email: 'cliente@example.com', amount: '49.90', currency: 'USD');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function checkoutSession(): array
+    {
+        return ['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/cs_1'];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function customer(): array
+    {
+        return ['id' => 'cus_1', 'object' => 'customer'];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function price(): array
+    {
+        return ['id' => 'price_1', 'object' => 'price'];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function subscriptionObject(): array
+    {
+        return ['id' => 'sub_1', 'object' => 'subscription', 'status' => 'active', 'current_period_end' => 1767225600];
     }
 
     private function driver(): StripeCheckoutDriver
