@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Abitech\Payments\Drivers\Stripe;
 
 use Illuminate\Http\Request;
+use Abitech\Payments\Concerns\ConvertsStripeAmounts;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\VerifiesWebhookSignature;
 use Abitech\Payments\DTO\PaymentRequest;
@@ -20,7 +21,7 @@ use Abitech\Payments\Exceptions\PaymentGatewayException;
 
 class StripePaymentIntentsDriver extends AbstractPaymentDriver
 {
-    use VerifiesWebhookSignature;
+    use ConvertsStripeAmounts, VerifiesWebhookSignature;
 
     protected array $supportedCurrencies = [
         'USD', 'EUR', 'GBP', 'PEN', 'MXN', 'BRL', 'ARS', 'CLP', 'COP',
@@ -88,7 +89,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
 
             $intent = $this->client->paymentIntents->create([
-                'amount' => (int) round($request->amount * 100),
+                'amount' => $this->toStripeAmount($request->amount, $request->currency),
                 'currency' => strtolower($request->currency),
                 'payment_method' => $request->cardToken,
                 'payment_method_types' => $paymentMethodTypes,
@@ -124,7 +125,10 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             $params = ['payment_intent' => $transactionId];
 
             if ($amount !== null) {
-                $params['amount'] = (int) round($amount * 100);
+                $params['amount'] = $this->toStripeAmount(
+                    $amount,
+                    $this->client->paymentIntents->retrieve($transactionId)->currency,
+                );
             }
 
             $this->client->refunds->create($params);
@@ -143,7 +147,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
 
         return $this->retry(function () use ($request) {
             $transfer = $this->client->transfers->create([
-                'amount' => (int) round($request->amount * 100),
+                'amount' => $this->toStripeAmount($request->amount, $request->currency),
                 'currency' => strtolower($request->currency),
                 'destination' => $request->recipient,
                 'description' => $request->description,
@@ -179,7 +183,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         $object = $event['data']['object'] ?? [];
 
         $transactionId = $object['id'] ?? null;
-        $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : null;
+        $amount = $this->fromStripeAmount($object['amount'] ?? null, $object['currency'] ?? null);
         $currency = $object['currency'] ?? null;
 
         if (str_starts_with($type, 'payment_intent.')) {
@@ -187,7 +191,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         } elseif ($type === 'charge.refunded') {
             $transactionId = $object['payment_intent'] ?? $transactionId;
             $status = 'refunded';
-            $amount = isset($object['amount_refunded']) ? (float) $object['amount_refunded'] / 100 : null;
+            $amount = $this->fromStripeAmount($object['amount_refunded'] ?? null, $object['currency'] ?? null);
         } else {
             $status = 'pending';
         }

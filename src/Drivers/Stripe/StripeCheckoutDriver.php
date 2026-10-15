@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Abitech\Payments\Drivers\Stripe;
 
 use Illuminate\Http\Request;
+use Abitech\Payments\Concerns\ConvertsStripeAmounts;
 use Abitech\Payments\Contracts\SubscriptionInterface;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\VerifiesWebhookSignature;
@@ -23,7 +24,7 @@ use Abitech\Payments\Exceptions\PaymentGatewayException;
 
 class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
-    use VerifiesWebhookSignature;
+    use ConvertsStripeAmounts, VerifiesWebhookSignature;
 
     /** @var string[] Divisas soportadas por Stripe. */
     protected array $supportedCurrencies = [
@@ -111,7 +112,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     'price_data' => [
                         'currency' => strtolower($request->currency),
                         'product_data' => ['name' => $request->description],
-                        'unit_amount' => (int) round($request->amount * 100),
+                        'unit_amount' => $this->toStripeAmount($request->amount, $request->currency),
                     ],
                     'quantity' => $request->metadata['quantity'] ?? 1,
                 ]],
@@ -156,7 +157,10 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             $params = ['payment_intent' => $transactionId];
 
             if ($amount !== null) {
-                $params['amount'] = (int) round($amount * 100);
+                $params['amount'] = $this->toStripeAmount(
+                    $amount,
+                    $this->client->paymentIntents->retrieve($transactionId)->currency,
+                );
             }
 
             $this->client->refunds->create($params);
@@ -175,7 +179,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
 
         return $this->retry(function () use ($request) {
             $transfer = $this->client->transfers->create([
-                'amount' => (int) round($request->amount * 100),
+                'amount' => $this->toStripeAmount($request->amount, $request->currency),
                 'currency' => strtolower($request->currency),
                 'destination' => $request->recipient,
                 'description' => $request->description,
@@ -224,22 +228,22 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         } elseif (in_array($type, ['checkout.session.completed', 'checkout.session.async_payment_succeeded'], true)) {
             $transactionId = $object['id'] ?? null;
             $status = 'completed';
-            $amount = isset($object['amount_total']) ? (float) $object['amount_total'] / 100 : null;
+            $amount = $this->fromStripeAmount($object['amount_total'] ?? null, $object['currency'] ?? null);
             $currency = $object['currency'] ?? null;
         } elseif ($type === 'payment_intent.succeeded') {
             $transactionId = $object['payment_details']['order_reference'] ?? $object['id'] ?? null;
             $status = 'completed';
-            $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : null;
+            $amount = $this->fromStripeAmount($object['amount'] ?? null, $object['currency'] ?? null);
             $currency = $object['currency'] ?? null;
         } elseif (in_array($type, ['checkout.session.async_payment_failed', 'payment_intent.payment_failed', 'payment_intent.canceled'], true)) {
             $transactionId = $object['payment_details']['order_reference'] ?? $object['id'] ?? null;
             $status = 'failed';
-            $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : (isset($object['amount_total']) ? (float) $object['amount_total'] / 100 : null);
+            $amount = $this->fromStripeAmount($object['amount'] ?? $object['amount_total'] ?? null, $object['currency'] ?? null);
             $currency = $object['currency'] ?? null;
         } elseif ($type === 'charge.refunded') {
             $transactionId = $object['payment_intent'] ?? null;
             $status = 'refunded';
-            $amount = isset($object['amount_refunded']) ? (float) $object['amount_refunded'] / 100 : null;
+            $amount = $this->fromStripeAmount($object['amount_refunded'] ?? null, $object['currency'] ?? null);
             $currency = $object['currency'] ?? null;
         }
 
@@ -357,7 +361,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
 
             $price = $this->client->prices->create([
                 'currency' => strtolower($request->currency ?? 'usd'),
-                'unit_amount' => (int) round(($request->amount ?? 0) * 100),
+                'unit_amount' => $this->toStripeAmount($request->amount ?? 0, $request->currency ?? 'usd'),
                 'recurring' => [
                     'interval' => $request->interval ?? 'month',
                     'interval_count' => $request->intervalCount ?? 1,

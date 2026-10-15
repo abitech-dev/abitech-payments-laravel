@@ -11,6 +11,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Webhooks: la ausencia de encabezados de firma (`x-signature`/`x-request-id`
   de Mercado Pago, `Stripe-Signature`) lanza `PaymentGatewayException` 403;
   antes salía con código 0 y la app host respondía 500, invitando a reintentar.
+- Stripe: las monedas sin decimales (JPY, CLP, KRW…) se envían y se leen sin
+  multiplicar por 100 (`ConvertsStripeAmounts`); un reembolso parcial toma la
+  moneda del PaymentIntent.
 
 ## [1.0.0] - 2026-07-03
 
