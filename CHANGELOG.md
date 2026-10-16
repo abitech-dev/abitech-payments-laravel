@@ -9,7 +9,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 ### Cambiado
 
 - **Incompatible.** Deja de admitir Laravel 11, porque ya no tiene versión sin
-  avisos de seguridad. Los `illuminate/*` piden `^12.0|^13.0` y PHP `^8.2`.
+  avisos de seguridad. Los `illuminate/*` piden `^12.69|^13.30`, las primeras
+  versiones sin avisos, y PHP `^8.2`.
   El CI prueba PHP 8.2 con Laravel 12 en `--prefer-lowest`, 8.3 con Laravel 12
   y 13 y 8.5 con Laravel 13, con el bloqueo de avisos de Composer activo.
 - La versión sale del tag `vX.Y.Z` y no de `composer.json`. El paquete ya no
