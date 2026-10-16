@@ -16,11 +16,11 @@ jobs:
       matrix:
         include:
           # La fila mínima prueba el piso de cada rango de composer.json.
-          - { php: '8.2', laravel: '11.*', testbench: '9.*', stability: prefer-lowest }
-          - { php: '8.4', laravel: '11.*', testbench: '9.*', stability: prefer-stable }
+          - { php: '8.2', laravel: '12.*', testbench: '10.*', stability: prefer-lowest }
+          - { php: '8.3', laravel: '12.*', testbench: '10.*', stability: prefer-stable }
           # Laravel 13 exige PHP 8.3, así que su fila baja empieza ahí.
           - { php: '8.3', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
-          - { php: '8.4', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
+          - { php: '8.5', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
 
     steps:
       - uses: actions/checkout@v4
@@ -34,11 +34,7 @@ jobs:
       - name: Validar composer.json
         run: composer validate --strict --no-check-lock
 
-      # Toda versión de Laravel 11 tiene avisos y Composer las bloquea al
-      # resolver. Aquí se prueba compatibilidad; la auditoría es composer audit.
       - name: Instalar dependencias
-        env:
-          COMPOSER_NO_SECURITY_BLOCKING: ${{ matrix.laravel == '11.*' && '1' || '0' }}
         run: |
           composer require --dev "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-update --no-interaction
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress

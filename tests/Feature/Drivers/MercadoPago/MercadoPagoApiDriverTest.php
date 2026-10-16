@@ -200,7 +200,15 @@ class MercadoPagoApiDriverTest extends TestCase
         ];
     }
 
-    #[DataProvider('operations')]
+    /**
+     * @return array<string, array{0: Closure(MercadoPagoApiDriver): mixed}>
+     */
+    public static function operationClosures(): array
+    {
+        return array_map(static fn (array $case) => [$case[0]], self::operations());
+    }
+
+    #[DataProvider('operationClosures')]
     public function test_a_client_error_is_surfaced_without_retrying(Closure $operation): void
     {
         $mercadoPago = FakeMercadoPagoHttpClient::install([[400, ['message' => 'Solicitud invalida']]]);

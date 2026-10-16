@@ -4,8 +4,8 @@ Motor de pasarelas de pago para aplicaciones Laravel. Implementa el patron Strat
 
 ## Requisitos
 
-- PHP ^8.2 | ^8.3 | ^8.4 con la extensión `bcmath`
-- Laravel ^11.0 | ^12.0 | ^13.0
+- PHP ^8.2 con la extensión `bcmath`; Laravel 13 exige PHP 8.3
+- Laravel ^12.0 | ^13.0
 
 ## Instalacion
 

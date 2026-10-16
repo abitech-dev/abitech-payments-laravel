@@ -36,8 +36,9 @@ local (`project/testing.md` regla 1).
 ## 3. Puertas de calidad
 
 CI en `.github/workflows/tests.yml` corre la suite con PHP 8.2 y Laravel
-11 en `--prefer-lowest`, PHP 8.4 con Laravel 11, y PHP 8.3 y 8.4 con
-Laravel 13, que exige PHP 8.3. Sin linters. Antes de entregar, estas tres con
+12 en `--prefer-lowest`, PHP 8.3 con Laravel 12, y PHP 8.3 y 8.5 con
+Laravel 13, que exige PHP 8.3, con el bloqueo de avisos de Composer activo.
+Sin linters. Antes de entregar, estas tres con
 cero errores; `composer audit` sale con 0 tras actualizar el lock local
 con `composer update -W` dentro de los rangos.
 
