@@ -60,7 +60,7 @@ código.
    nombre propio (`<paquete>.`) o desactivables por config cuando pueden
    chocar con las de la app (`/login`, `/logout`).
 5. **Dependencias.**
-   - Rangos explícitos de `php` e `illuminate/*` (`^11.0|^12.0`); ampliar
+   - Rangos explícitos de `php` e `illuminate/*` (`^12.0|^13.0`); ampliar
      uno exige probar con la versión menor y la mayor del rango.
    - Una dependencia que usa `src/` se declara aunque llegue transitiva.
 6. **Residente en memoria.** El host puede correr con Octane. Un
