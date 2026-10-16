@@ -34,7 +34,11 @@ jobs:
       - name: Validar composer.json
         run: composer validate --strict --no-check-lock
 
+      # Toda versión de Laravel 11 tiene avisos y Composer las bloquea al
+      # resolver. Aquí se prueba compatibilidad; la auditoría es composer audit.
       - name: Instalar dependencias
+        env:
+          COMPOSER_NO_SECURITY_BLOCKING: ${{ matrix.laravel == '11.*' && '1' || '0' }}
         run: |
           composer require --dev "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-update --no-interaction
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
