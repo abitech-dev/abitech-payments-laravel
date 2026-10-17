@@ -317,8 +317,10 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
     protected function buildItems(PaymentRequest $request): array
     {
         if (!empty($request->metadata['items'])) {
+            $prefix = $request->idempotencyKey ?? uniqid('', true);
+
             return collect($request->metadata['items'])->map(fn ($item, $i) => [
-                'id' => $request->idempotencyKey . '-' . ($i + 1) ?? uniqid('', true),
+                'id' => "{$prefix}-" . ($i + 1),
                 'title' => $item['name'] ?? $item['description'] ?? 'Producto',
                 'quantity' => 1,
                 'unit_price' => $this->toMercadoPagoAmount((string) ($item['price'] ?? '0')),

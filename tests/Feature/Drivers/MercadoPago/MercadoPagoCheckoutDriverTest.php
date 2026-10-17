@@ -15,6 +15,7 @@ use Abitech\Payments\Tests\TestCase;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class MercadoPagoCheckoutDriverTest extends TestCase
@@ -92,6 +93,20 @@ class MercadoPagoCheckoutDriverTest extends TestCase
         $this->assertSame('https://www.mercadopago.com.pe/checkout/pref_1', $response->redirectUrl);
         $this->assertStringContainsString('"external_reference":"k-1"', $mercadoPago->requests[0]->getPayload());
         $this->assertStringContainsString('"unit_price":50.5', $mercadoPago->requests[0]->getPayload());
+    }
+
+    public function test_items_without_idempotency_key_share_a_generated_id_prefix(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, self::preference()]]);
+
+        $this->driver()->purchase(self::checkoutWithItems([
+            ['name' => 'Licencia', 'price' => '40.00'],
+            ['name' => 'Soporte', 'price' => '10.50'],
+        ], idempotencyKey: null));
+
+        [$first, $second] = collect(json_decode($mercadoPago->requests[0]->getPayload(), true)['items'])->pluck('id')->all();
+        $this->assertMatchesRegularExpression('/^[0-9a-f.]+-1$/', $first);
+        $this->assertSame(Str::beforeLast($first, '-') . '-2', $second);
     }
 
     public function test_a_full_refund_sends_an_empty_body(): void
@@ -231,6 +246,22 @@ class MercadoPagoCheckoutDriverTest extends TestCase
             description: 'Plan mensual',
             idempotencyKey: 'k-1',
             successUrl: 'https://app.example.com/ok',
+        );
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     */
+    private static function checkoutWithItems(array $items, ?string $idempotencyKey = 'k-1'): PaymentRequest
+    {
+        return new PaymentRequest(
+            amount: '50.50',
+            currency: 'PEN',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            idempotencyKey: $idempotencyKey,
+            successUrl: 'https://app.example.com/ok',
+            metadata: ['items' => $items],
         );
     }
 

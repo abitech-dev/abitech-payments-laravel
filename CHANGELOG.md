@@ -6,6 +6,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Corregido
+
+- Mercado Pago Checkout sin `idempotencyKey` arma el `id` de cada ítem con un
+  prefijo generado; antes quedaba `-1`, `-2`.
+
 ## [2.0.0] - 2026-10-17
 
 ### Cambiado
