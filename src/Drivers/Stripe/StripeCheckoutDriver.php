@@ -88,9 +88,8 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     }
 
     /**
-     * Crea una sesion de Stripe Checkout y retorna la URL de redireccion.
-     *
-     * metadata esperado: success_url, cancel_url, quantity (opcional).
+     * Crea una sesión de Stripe Checkout con una sola línea por el monto total
+     * y retorna la URL de redirección.
      */
     public function purchase(PaymentRequest $request): PaymentResponse
     {
@@ -119,7 +118,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                         'product_data' => ['name' => $request->description],
                         'unit_amount' => $unitAmount,
                     ],
-                    'quantity' => $request->metadata['quantity'] ?? 1,
+                    'quantity' => 1,
                 ]],
                 'mode' => 'payment',
                 'payment_method_types' => $paymentMethodTypes,

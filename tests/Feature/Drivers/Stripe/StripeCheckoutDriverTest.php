@@ -88,6 +88,26 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame(1999, $stripe->requests[0]['params']['line_items'][0]['price_data']['unit_amount']);
     }
 
+    public function test_purchase_charges_the_amount_once_whatever_the_metadata_quantity(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, self::checkoutSession()]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: '10.00',
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            successUrl: 'https://app.example.com/ok',
+            cancelUrl: 'https://app.example.com/cancelado',
+            metadata: ['quantity' => 3],
+        ));
+
+        $lineItems = $stripe->requests[0]['params']['line_items'];
+        $this->assertCount(1, $lineItems);
+        $this->assertSame(1, $lineItems[0]['quantity']);
+        $this->assertSame(1000, $lineItems[0]['price_data']['unit_amount']);
+    }
+
     public function test_a_partial_refund_converts_the_amount_with_the_payment_intent_currency(): void
     {
         $stripe = FakeStripeHttpClient::install([

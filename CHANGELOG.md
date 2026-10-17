@@ -16,6 +16,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
   antes de autenticar, en vez de cobrar otro importe.
 - Mercado Pago Checkout sin `idempotencyKey` arma el `id` de cada ítem con un
   prefijo generado; antes quedaba `-1`, `-2`.
+- Stripe Checkout cobra `amount` en una sola línea de cantidad 1 e ignora
+  `metadata['quantity']`, que multiplicaba el total. Una app que la enviaba
+  debe pasar el total en `amount`.
 
 ## [2.0.0] - 2026-10-17
 
