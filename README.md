@@ -4,8 +4,8 @@ Motor de pasarelas de pago para aplicaciones Laravel. Implementa el patron Strat
 
 ## Requisitos
 
-- PHP ^8.2 | ^8.3 | ^8.4
-- Laravel ^11.0 | ^12.0 | ^13.0
+- PHP ^8.2 con la extensión `bcmath`; Laravel 13 exige PHP 8.3
+- Laravel ^12.69 | ^13.30
 
 ## Instalacion
 
@@ -74,7 +74,7 @@ class BillingController extends Controller
     public function checkout(PaymentManager $manager)
     {
         $request = new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'PEN',
             email: 'cliente@email.com',
             description: 'Suscripcion mensual',
@@ -91,6 +91,11 @@ class BillingController extends Controller
     }
 }
 ```
+
+Los montos son cadenas decimales en unidad mayor (`'19.99'`), nunca `float`,
+en los DTO, en `refund()` y en `WebhookResult::$amount`. Un monto con otro
+formato, o con más decimales de los que admite la moneda en Stripe, lanza
+`PaymentGatewayException` 422.
 
 ## Webhooks
 

@@ -25,7 +25,7 @@ Flujo de redireccion al checkout hospedado de Stripe.
 **Uso:**
 ```php
 $response = $manager->driver('stripe_checkout')->purchase(new PaymentRequest(
-    amount: 100.00,
+    amount: '100.00',
     currency: 'USD',
     email: 'cliente@email.com',
     description: 'Suscripcion mensual',
@@ -54,7 +54,7 @@ Flujo de pago directo con Stripe Elements (formulario propio). Requiere un Payme
 **Uso:**
 ```php
 $response = $manager->driver('stripe_paymentintents')->purchase(new PaymentRequest(
-    amount: 100.00,
+    amount: '100.00',
     currency: 'USD',
     email: 'cliente@email.com',
     description: 'Producto X',

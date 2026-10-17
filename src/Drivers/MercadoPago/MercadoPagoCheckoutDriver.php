@@ -14,24 +14,21 @@ use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
-use Abitech\Payments\Events\PaymentInitiated;
-use Abitech\Payments\Events\PaymentSucceeded;
-use Abitech\Payments\Events\PayoutProcessed;
-use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
+use Illuminate\Support\Carbon;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Preference\PreferenceClient;
 use MercadoPago\Client\Payment\PaymentClient;
 use MercadoPago\Client\PreApproval\PreApprovalClient;
-use MercadoPago\Exceptions\MPApiException;
-use DateTime;
-use Exception;
 
 class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
     use HandlesMercadoPagoWebhook, HandlesMercadoPagoRefund;
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
+
+    /** Clase cuya ausencia indica que falta el SDK. */
+    protected const SDK_CLASS = MercadoPagoConfig::class;
 
     public static function paymentMethodSchema(): array
     {
@@ -64,6 +61,8 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
     protected function authenticate(): void
     {
+        $this->ensureSdkInstalled(static::SDK_CLASS, 'mercadopago/dx-php');
+
         $accessToken = $this->config['access_token'] ?? null;
 
         if (empty($accessToken)) {
@@ -78,27 +77,21 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
     public function health(): bool
     {
         $this->authenticate();
+        $this->throttle('mercadopago_checkout:health');
 
         try {
-            $client = new PaymentClient();
-            $client->get(1);
-            return true;
-        } catch (MPApiException $e) {
-            if ($e->getStatusCode() === 404) {
+            return $this->retry(function () {
+                (new PaymentClient())->get(1);
+
+                return true;
+            });
+        } catch (PaymentGatewayException $e) {
+            // El pago 1 no existe; un 404 prueba que la API responde.
+            if ($e->getCode() === 404) {
                 return true;
             }
 
-            throw new PaymentGatewayException(
-                "Mercado Pago no responde: " . $e->getMessage(),
-                $e->getStatusCode() ?: 500,
-                $e
-            );
-        } catch (Exception $e) {
-            throw new PaymentGatewayException(
-                "Fallo de conectividad con Mercado Pago: " . $e->getMessage(),
-                500,
-                $e
-            );
+            throw new PaymentGatewayException("Mercado Pago no responde: " . $e->getMessage(), $e->getCode(), $e);
         }
     }
 
@@ -118,11 +111,11 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             $cancelUrl = $request->cancelUrl ?? $backUrls['failure'] ?? $request->metadata['cancel_url'] ?? null;
             $pendingUrl = $backUrls['pending'] ?? $request->metadata['pending_url'] ?? null;
 
-            $backUrlsPayload = array_filter([
+            $backUrlsPayload = collect([
                 'success' => $successUrl,
                 'failure' => $cancelUrl,
                 'pending' => $pendingUrl,
-            ], fn ($v) => $v !== null);
+            ])->filter(fn ($url) => $url !== null)->all();
 
             $payload = [
                 'items' => $items,
@@ -152,32 +145,25 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
             $preference = $client->create($payload);
 
-            $response = new PaymentResponse(
+            return new PaymentResponse(
                 success: true,
                 transactionId: $preference->id,
                 status: 'pending',
                 redirectUrl: $preference->init_point,
                 raw: json_decode(json_encode($preference), true)
             );
-
-            event(new PaymentInitiated($response, 'mercadopago_checkout'));
-
-            return $response;
         });
     }
 
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('mercadopago_checkout:refund');
 
-        $result = $this->retry(function () use ($transactionId, $amount) {
+        return $this->retry(function () use ($transactionId, $amount) {
             return $this->sendRefundRequest($transactionId, $amount);
         });
-
-        event(new RefundProcessed('mercadopago_checkout', $transactionId, $amount));
-
-        return $result;
     }
 
     public function payout(PayoutRequest $request): PayoutResponse
@@ -189,22 +175,18 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         return $this->retry(function () use ($request) {
             $client = new PaymentClient();
             $payment = $client->create([
-                'transaction_amount' => $request->amount,
+                'transaction_amount' => $this->toMercadoPagoAmount($request->amount),
                 'description' => $request->description,
                 'payment_method_id' => $request->metadata['payment_method_id'] ?? 'account_money',
                 'payer' => ['email' => $request->recipient],
             ]);
 
-            $response = new PayoutResponse(
+            return new PayoutResponse(
                 success: $payment->status === 'approved',
                 payoutId: (string) $payment->id,
                 status: $payment->status === 'approved' ? 'completed' : 'pending',
                 raw: json_decode(json_encode($payment), true)
             );
-
-            event(new PayoutProcessed($response, 'mercadopago_checkout'));
-
-            return $response;
         });
     }
 
@@ -218,20 +200,20 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         return $this->retry(function () use ($request) {
             $client = new PreApprovalClient();
 
-            $startDate = new DateTime();
+            $startDate = Carbon::now();
             $endDate = isset($request->metadata['end_date'])
-                ? new DateTime($request->metadata['end_date'])
-                : (new DateTime())->modify('+2 years');
+                ? Carbon::parse($request->metadata['end_date'])
+                : Carbon::now()->addYears(2);
 
             $preapproval = $client->create([
                 'reason' => $request->planId,
                 'auto_recurring' => [
                     'frequency' => $request->intervalCount ?? 1,
                     'frequency_type' => $this->mapInterval($request->interval),
-                    'transaction_amount' => $request->amount,
+                    'transaction_amount' => $request->amount === null ? null : $this->toMercadoPagoAmount($request->amount),
                     'currency_id' => $request->currency,
-                    'start_date' => $startDate->format('Y-m-d\TH:i:sP'),
-                    'end_date' => $endDate->format('Y-m-d\TH:i:sP'),
+                    'start_date' => $startDate->toIso8601String(),
+                    'end_date' => $endDate->toIso8601String(),
                 ],
                 'payer_email' => $request->email,
                 'back_url' => $request->metadata['back_url'] ?? null,
@@ -265,7 +247,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 subscriptionId: $preapproval->id,
                 status: 'cancelled',
                 planId: $preapproval->reason ?? null,
-                canceledAt: (new DateTime())->format('Y-m-d\TH:i:sP'),
+                canceledAt: Carbon::now()->toIso8601String(),
                 raw: json_decode(json_encode($preapproval), true)
             );
         });
@@ -282,7 +264,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             $payload = [];
 
             if ($request->amount !== null) {
-                $payload['auto_recurring']['transaction_amount'] = $request->amount;
+                $payload['auto_recurring']['transaction_amount'] = $this->toMercadoPagoAmount($request->amount);
             }
 
             if (!empty($payload)) {
@@ -335,20 +317,20 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
     protected function buildItems(PaymentRequest $request): array
     {
         if (!empty($request->metadata['items'])) {
-            return array_map(fn ($item, $i) => [
+            return collect($request->metadata['items'])->map(fn ($item, $i) => [
                 'id' => $request->idempotencyKey . '-' . ($i + 1) ?? uniqid('', true),
                 'title' => $item['name'] ?? $item['description'] ?? 'Producto',
                 'quantity' => 1,
-                'unit_price' => (float) ($item['price'] ?? 0),
+                'unit_price' => $this->toMercadoPagoAmount((string) ($item['price'] ?? '0')),
                 'currency_id' => strtoupper($request->currency),
-            ], $request->metadata['items'], array_keys($request->metadata['items']));
+            ])->values()->all();
         }
 
         return [[
             'id' => $request->idempotencyKey ?? uniqid('', true),
             'title' => $request->description,
             'quantity' => 1,
-            'unit_price' => $request->amount,
+            'unit_price' => $this->toMercadoPagoAmount($request->amount),
             'currency_id' => strtoupper($request->currency),
         ]];
     }
@@ -383,9 +365,9 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
     {
         foreach (['excluded_payment_methods', 'excluded_payment_types'] as $key) {
             if (isset($paymentMethods[$key]) && is_array($paymentMethods[$key])) {
-                $paymentMethods[$key] = array_map(function ($item) {
-                    return is_string($item) ? ['id' => $item] : $item;
-                }, $paymentMethods[$key]);
+                $paymentMethods[$key] = collect($paymentMethods[$key])
+                    ->map(fn ($item) => is_string($item) ? ['id' => $item] : $item)
+                    ->all();
             }
         }
 

@@ -4,13 +4,75 @@ Todas las versiones notables de `abitech/payments-laravel` estan documentadas aq
 
 El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Sin publicar]
+
+## [2.0.0] - 2026-10-17
+
+### Cambiado
+
+- **Incompatible.** Deja de admitir Laravel 11, porque ya no tiene versión sin
+  avisos de seguridad. Los `illuminate/*` piden `^12.69|^13.30`, las primeras
+  versiones sin avisos, y PHP `^8.2`.
+  El CI prueba PHP 8.2 con Laravel 12 en `--prefer-lowest`, 8.3 con Laravel 12
+  y 13 y 8.5 con Laravel 13, con el bloqueo de avisos de Composer activo.
+- La versión sale del tag `vX.Y.Z` y no de `composer.json`. El paquete ya no
+  distribuye `.agents/`, `.claude/` ni `CLAUDE.md`.
+- `abitech.idempotency` responde «Se requiere el encabezado X-Idempotency-Key.»
+  sin cabecera, sin aludir a pagos, porque la app host también lo aplica en
+  mutaciones que no cobran. Una prueba que comparaba el texto anterior debe
+  actualizarse.
+- **Incompatible.** Los montos son cadenas decimales en unidad mayor
+  (`'19.99'`) en vez de `float`: `$amount` de `PaymentRequest`,
+  `PayoutRequest`, `SubscriptionRequest`, `WebhookResult` y `RefundProcessed`,
+  y `refund(string $transactionId, ?string $amount = null)`. Un monto con otro
+  formato lanza `PaymentGatewayException` 422, y en Stripe también uno con más
+  decimales de los que admite la moneda. La conversión a la unidad menor de
+  Stripe usa bcmath, así que el paquete requiere `ext-bcmath`. La app host debe
+  pasar cadenas y leer `WebhookResult::$amount` como cadena.
+- `illuminate/collections` pasa a `require`, porque los drivers usan
+  `collect()`; las fechas de suscripción salen de `Illuminate\Support\Carbon`
+  en ISO 8601.
+- **Incompatible.** Los drivers ya no disparan `PaymentInitiated`,
+  `PaymentSucceeded`, `RefundProcessed` ni `PayoutProcessed`; devuelven el DTO
+  y la app host dispara el evento de `src/Events/` que le corresponda. Iban
+  dentro de `retry()`, así que un listener que fallaba con 429 o 5xx repetía la
+  llamada a la pasarela. Una app que los escuchaba debe dispararlos tras la
+  llamada al driver (account no escucha ninguno).
 
 ### Corregido
 
+- Los webhooks de Stripe que no logran leer la tarjeta registran un
+  `Log::warning()` con la pasarela, el PaymentIntent y el error; antes el fallo
+  se descartaba. `illuminate/log` pasa a `require`.
+- `abitech_payments.retry.retryable_http_codes`, o la misma clave en las
+  credenciales de la pasarela, decide qué códigos HTTP reintenta `retry()`;
+  antes se ignoraba y regían siempre 429, 500, 502, 503 y 504.
+- Stripe Checkout valida `success_url` y `cancel_url` antes de autenticar y de
+  contar la llamada en el limitador.
+- Sin el SDK de la pasarela instalado, `authenticate()` lanza
+  `PaymentGatewayException` con el `composer require` exacto
+  (`stripe/stripe-php` o `mercadopago/dx-php`) en vez de un `Error` de clase
+  inexistente.
+- `PaymentRequest::$idempotencyKey` llega a la pasarela al cobrar. Stripe
+  PaymentIntents la recibe como opción `idempotency_key` y Mercado Pago API
+  como cabecera `X-Idempotency-Key`, que antes no se enviaba porque el driver
+  buscaba `RequestOptions` en un namespace inexistente. Un reintento ya no
+  puede duplicar el cobro.
+- Stripe: `handleWebhook()` autentica el cliente tras verificar la firma, así
+  que un `payment_intent.succeeded` trae marca y últimos dígitos de la tarjeta;
+  antes la consulta al SDK fallaba con el cliente nulo y el dato se perdía.
+- Toda llamada al SDK de `handleWebhook()` y `health()` pasa por `throttle()` y
+  `retry()`, y un 429 o 5xx transitorio se reintenta. En Mercado Pago el error
+  del webhook o de `health()` sale como `PaymentGatewayException` con el código
+  HTTP de la API.
 - Webhooks: la ausencia de encabezados de firma (`x-signature`/`x-request-id`
   de Mercado Pago, `Stripe-Signature`) lanza `PaymentGatewayException` 403;
   antes salía con código 0 y la app host respondía 500, invitando a reintentar.
+- Stripe: las monedas sin decimales (JPY, CLP, KRW…) se envían y se leen sin
+  multiplicar por 100 (`ConvertsStripeAmounts`); un reembolso parcial toma la
+  moneda del PaymentIntent.
+- `PaymentManager` se registra `scoped`: bajo Octane cada petición resuelve sus
+  drivers con las credenciales vigentes.
 
 ## [1.0.0] - 2026-07-03
 
@@ -54,4 +116,5 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Eliminado `minimum-stability: dev` de composer.json
 - Corregidas restricciones de version de PHP/illuminate
 
+[2.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.0
 [1.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v1.0.0

@@ -6,8 +6,11 @@ namespace Abitech\Payments\Drivers;
 
 use Abitech\Payments\Concerns\RateLimitsApiCalls;
 use Abitech\Payments\Concerns\RetriesApiCalls;
+use Abitech\Payments\Concerns\ValidatesAmounts;
 use Abitech\Payments\Contracts\PaymentGatewayInterface;
+use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\Exceptions\UnsupportedCurrencyException;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Clase base para todos los drivers de pasarelas de pago.
@@ -19,6 +22,7 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
 {
     use RateLimitsApiCalls;
     use RetriesApiCalls;
+    use ValidatesAmounts;
 
     /** Configuracion de la pasarela (credenciales, secrets). */
     protected array $config = [];
@@ -36,6 +40,9 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
         $this->maxRetries = (int) ($config['max_retries'] ?? $globalRetry['max_attempts'] ?? $this->maxRetries);
         $this->retryBaseDelayMs = (int) ($config['retry_base_delay_ms'] ?? $globalRetry['base_delay_ms'] ?? $this->retryBaseDelayMs);
         $this->retryMultiplier = (float) ($config['retry_multiplier'] ?? $globalRetry['multiplier'] ?? $this->retryMultiplier);
+        $this->retryableHttpCodes = collect($config['retryable_http_codes'] ?? $globalRetry['retryable_http_codes'] ?? $this->retryableHttpCodes)
+            ->map(fn ($code) => (int) $code)
+            ->all();
         $this->maxRequestsPerMinute = (int) ($config['max_requests_per_minute'] ?? $globalRateLimit['max_requests_per_minute'] ?? $this->maxRequestsPerMinute);
 
         if (!empty($globalRateLimit['cache_prefix'])) {
@@ -48,6 +55,33 @@ abstract class AbstractPaymentDriver implements PaymentGatewayInterface
      * Ej: 'mercadopago_checkout', 'stripe_paymentintents'.
      */
     abstract public function getGatewayName(): string;
+
+    /**
+     * Los SDK van en `suggest`, así que la app host puede no tenerlos.
+     */
+    protected function ensureSdkInstalled(string $sdkClass, string $package): void
+    {
+        if (! class_exists($sdkClass)) {
+            throw new PaymentGatewayException(
+                "El SDK {$package} no está instalado. Ejecute composer require {$package}."
+            );
+        }
+    }
+
+    /**
+     * Registra una falla que el driver absorbe. Solo guarda el mensaje de la
+     * excepción, porque la traza puede llevar credenciales en sus argumentos.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    protected function logRecoveredFailure(string $message, array $context, PaymentGatewayException $exception): void
+    {
+        Log::warning($message, [
+            'gateway' => $this->getGatewayName(),
+            ...$context,
+            'exception' => $exception->getMessage(),
+        ]);
+    }
 
     /**
      * Lanza UnsupportedCurrencyException si la divisa no esta en supportedCurrencies.

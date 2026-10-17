@@ -87,7 +87,7 @@ class BillingController extends Controller
     public function checkout(Request $request, PaymentManager $manager)
     {
         $dto = new PaymentRequest(
-            amount: $request->input('amount'),
+            amount: (string) $request->input('amount'),
             currency: $request->input('currency', 'PEN'),
             email: $request->user()->email,
             description: $request->input('description'),

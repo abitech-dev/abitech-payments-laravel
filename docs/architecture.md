@@ -67,6 +67,9 @@ class NuevaPasarelaCheckoutDriver extends AbstractPaymentDriver
 
     protected array $supportedCurrencies = ['USD', 'EUR', 'PEN'];
 
+    // Clase del SDK opcional; sin ella authenticate() pide el composer require
+    protected const SDK_CLASS = NuevaPasarelaClient::class;
+
     public function getGatewayName(): string
     {
         return 'nuevapasarela_checkout';
@@ -74,6 +77,8 @@ class NuevaPasarelaCheckoutDriver extends AbstractPaymentDriver
 
     protected function authenticate(): void
     {
+        $this->ensureSdkInstalled(static::SDK_CLASS, 'nuevapasarela/sdk-php');
+
         $apiKey = $this->config['api_key'] ?? null;
 
         if (empty($apiKey)) {
@@ -114,8 +119,9 @@ class NuevaPasarelaCheckoutDriver extends AbstractPaymentDriver
         });
     }
 
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('nuevapasarela_checkout:refund');
 
@@ -152,7 +158,7 @@ class NuevaPasarelaCheckoutDriver extends AbstractPaymentDriver
             eventType: 'payment.completed',
             transactionId: 'txn_xxx',
             status: 'completed',
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             raw: $request->all()
         );

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Abitech\Payments\Drivers\Stripe;
 
 use Illuminate\Http\Request;
+use Abitech\Payments\Concerns\ConvertsStripeAmounts;
 use Abitech\Payments\Contracts\SubscriptionInterface;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\VerifiesWebhookSignature;
@@ -15,15 +16,13 @@ use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
-use Abitech\Payments\Events\PaymentInitiated;
-use Abitech\Payments\Events\PaymentSucceeded;
-use Abitech\Payments\Events\PayoutProcessed;
-use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
+use Illuminate\Support\Carbon;
+use Stripe\StripeClient;
 
 class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
-    use VerifiesWebhookSignature;
+    use ConvertsStripeAmounts, VerifiesWebhookSignature;
 
     /** @var string[] Divisas soportadas por Stripe. */
     protected array $supportedCurrencies = [
@@ -32,8 +31,11 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         'DKK', 'PLN', 'CZK',
     ];
 
+    /** Clase cuya ausencia indica que falta el SDK. */
+    protected const SDK_CLASS = StripeClient::class;
+
     /** Cliente de Stripe inicializado en authenticate(). */
-    protected ?\Stripe\StripeClient $client = null;
+    protected ?StripeClient $client = null;
 
     public static function paymentMethodSchema(): array
     {
@@ -58,6 +60,8 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
      */
     protected function authenticate(): void
     {
+        $this->ensureSdkInstalled(static::SDK_CLASS, 'stripe/stripe-php');
+
         $secret = $this->config['secret'] ?? null;
 
         if (empty($secret)) {
@@ -66,8 +70,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             );
         }
 
-        $className = 'Stripe\StripeClient';
-        $this->client = new $className($secret);
+        $this->client = new StripeClient($secret);
     }
 
     /**
@@ -76,6 +79,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     public function health(): bool
     {
         $this->authenticate();
+        $this->throttle('stripe_checkout:health');
 
         return $this->retry(function () {
             $this->client->balance->retrieve();
@@ -91,8 +95,6 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     public function purchase(PaymentRequest $request): PaymentResponse
     {
         $this->validateCurrency($request->currency);
-        $this->authenticate();
-        $this->throttle('stripe_checkout:purchase');
 
         $successUrl = $request->successUrl ?? $request->metadata['success_url'] ?? null;
         $cancelUrl = $request->cancelUrl ?? $request->metadata['cancel_url'] ?? null;
@@ -103,7 +105,11 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             );
         }
 
-        return $this->retry(function () use ($request, $successUrl, $cancelUrl) {
+        $unitAmount = $this->toStripeAmount($request->amount, $request->currency);
+        $this->authenticate();
+        $this->throttle('stripe_checkout:purchase');
+
+        return $this->retry(function () use ($request, $successUrl, $cancelUrl, $unitAmount) {
             $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
 
             $session = $this->client->checkout->sessions->create([
@@ -111,7 +117,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     'price_data' => [
                         'currency' => strtolower($request->currency),
                         'product_data' => ['name' => $request->description],
-                        'unit_amount' => (int) round($request->amount * 100),
+                        'unit_amount' => $unitAmount,
                     ],
                     'quantity' => $request->metadata['quantity'] ?? 1,
                 ]],
@@ -127,28 +133,23 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     : [],
             ]);
 
-            $response = new PaymentResponse(
+            return new PaymentResponse(
                 success: true,
                 transactionId: $session->id,
                 status: 'pending',
                 redirectUrl: $session->url,
                 raw: $session->toArray()
             );
-
-            event(new PaymentInitiated($response, 'stripe_checkout'));
-
-            return $response;
         });
     }
 
     /**
-     * Reembolsa un PaymentIntent total o parcialmente.
-     *
-     * @param string $transactionId  ID del PaymentIntent a reembolsar
-     * @param float|null $amount     Monto parcial (null = reembolso total)
+     * Reembolsa un PaymentIntent; el monto parcial se convierte con la moneda
+     * del PaymentIntent.
      */
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('stripe_checkout:refund');
 
@@ -156,12 +157,13 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             $params = ['payment_intent' => $transactionId];
 
             if ($amount !== null) {
-                $params['amount'] = (int) round($amount * 100);
+                $params['amount'] = $this->toStripeAmount(
+                    $amount,
+                    $this->client->paymentIntents->retrieve($transactionId)->currency,
+                );
             }
 
             $this->client->refunds->create($params);
-
-            event(new RefundProcessed('stripe_checkout', $transactionId, $amount));
 
             return true;
         });
@@ -170,28 +172,25 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     public function payout(PayoutRequest $request): PayoutResponse
     {
         $this->validateCurrency($request->currency);
+        $amount = $this->toStripeAmount($request->amount, $request->currency);
         $this->authenticate();
         $this->throttle('stripe_checkout:payout');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $amount) {
             $transfer = $this->client->transfers->create([
-                'amount' => (int) round($request->amount * 100),
+                'amount' => $amount,
                 'currency' => strtolower($request->currency),
                 'destination' => $request->recipient,
                 'description' => $request->description,
                 'metadata' => $request->metadata,
             ]);
 
-            $response = new PayoutResponse(
+            return new PayoutResponse(
                 success: true,
                 payoutId: $transfer->id,
                 status: 'completed',
                 raw: $transfer->toArray()
             );
-
-            event(new PayoutProcessed($response, 'stripe_checkout'));
-
-            return $response;
         });
     }
 
@@ -210,6 +209,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         }
 
         $event = $this->verifyStripeSignature($request, $webhookSecret);
+        $this->authenticate();
 
         $type = $event['type'] ?? 'unknown';
         $object = $event['data']['object'] ?? [];
@@ -224,22 +224,22 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         } elseif (in_array($type, ['checkout.session.completed', 'checkout.session.async_payment_succeeded'], true)) {
             $transactionId = $object['id'] ?? null;
             $status = 'completed';
-            $amount = isset($object['amount_total']) ? (float) $object['amount_total'] / 100 : null;
+            $amount = $this->fromStripeAmount($object['amount_total'] ?? null, $object['currency'] ?? null);
             $currency = $object['currency'] ?? null;
         } elseif ($type === 'payment_intent.succeeded') {
             $transactionId = $object['payment_details']['order_reference'] ?? $object['id'] ?? null;
             $status = 'completed';
-            $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : null;
+            $amount = $this->fromStripeAmount($object['amount'] ?? null, $object['currency'] ?? null);
             $currency = $object['currency'] ?? null;
         } elseif (in_array($type, ['checkout.session.async_payment_failed', 'payment_intent.payment_failed', 'payment_intent.canceled'], true)) {
             $transactionId = $object['payment_details']['order_reference'] ?? $object['id'] ?? null;
             $status = 'failed';
-            $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : (isset($object['amount_total']) ? (float) $object['amount_total'] / 100 : null);
+            $amount = $this->fromStripeAmount($object['amount'] ?? $object['amount_total'] ?? null, $object['currency'] ?? null);
             $currency = $object['currency'] ?? null;
         } elseif ($type === 'charge.refunded') {
             $transactionId = $object['payment_intent'] ?? null;
             $status = 'refunded';
-            $amount = isset($object['amount_refunded']) ? (float) $object['amount_refunded'] / 100 : null;
+            $amount = $this->fromStripeAmount($object['amount_refunded'] ?? null, $object['currency'] ?? null);
             $currency = $object['currency'] ?? null;
         }
 
@@ -285,7 +285,11 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             }
 
             return $this->readCardFromPaymentIntent($object['id'] ?? null);
-        } catch (\Exception) {
+        } catch (PaymentGatewayException $exception) {
+            $this->logRecoveredFailure('No se pudo leer la tarjeta del PaymentIntent de Stripe.', [
+                'payment_intent' => $object['id'] ?? null,
+            ], $exception);
+
             return ['payment_method' => ($object['payment_method_types'][0] ?? null)];
         }
     }
@@ -311,7 +315,8 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             return [];
         }
 
-        $pi = $this->client->paymentIntents->retrieve($piId);
+        $this->throttle('stripe_checkout:webhook');
+        $pi = $this->retry(fn () => $this->client->paymentIntents->retrieve($piId));
         $card = $pi->latest_charge?->payment_method_details?->card;
 
         if ($card) {
@@ -347,17 +352,18 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
      */
     public function createSubscription(SubscriptionRequest $request): SubscriptionResponse
     {
+        $unitAmount = $this->toStripeAmount($request->amount ?? '0', $request->currency ?? 'usd');
         $this->authenticate();
         $this->throttle('stripe_checkout:create_subscription');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $unitAmount) {
             $customer = $this->client->customers->create([
                 'email' => $request->email,
             ]);
 
             $price = $this->client->prices->create([
                 'currency' => strtolower($request->currency ?? 'usd'),
-                'unit_amount' => (int) round(($request->amount ?? 0) * 100),
+                'unit_amount' => $unitAmount,
                 'recurring' => [
                     'interval' => $request->interval ?? 'month',
                     'interval_count' => $request->intervalCount ?? 1,
@@ -377,7 +383,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
                 planId: $request->planId,
-                nextBillingDate: date('c', $subscription->current_period_end),
+                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
                 raw: $subscription->toArray()
             );
         });
@@ -401,7 +407,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 success: true,
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
-                canceledAt: date('c'),
+                canceledAt: Carbon::now()->toIso8601String(),
                 raw: $subscription->toArray()
             );
         });
@@ -422,7 +428,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
                 planId: $request->planId,
-                nextBillingDate: date('c', $subscription->current_period_end),
+                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
                 raw: $subscription->toArray()
             );
         });
@@ -440,7 +446,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 success: true,
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
-                nextBillingDate: date('c', $subscription->current_period_end),
+                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
                 raw: $subscription->toArray()
             );
         });

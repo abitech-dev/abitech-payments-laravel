@@ -9,7 +9,7 @@ class RefundProcessed
     public function __construct(
         public readonly string $gateway,
         public readonly string $transactionId,
-        public readonly ?float $amount = null,
+        public readonly ?string $amount = null,
         public readonly array $context = []
     ) {}
 }

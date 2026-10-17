@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Abitech\Payments\Drivers\Stripe;
 
 use Illuminate\Http\Request;
+use Abitech\Payments\Concerns\ConvertsStripeAmounts;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\VerifiesWebhookSignature;
 use Abitech\Payments\DTO\PaymentRequest;
@@ -12,15 +13,12 @@ use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
 use Abitech\Payments\DTO\WebhookResult;
-use Abitech\Payments\Events\PaymentInitiated;
-use Abitech\Payments\Events\PaymentSucceeded;
-use Abitech\Payments\Events\PayoutProcessed;
-use Abitech\Payments\Events\RefundProcessed;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
+use Stripe\StripeClient;
 
 class StripePaymentIntentsDriver extends AbstractPaymentDriver
 {
-    use VerifiesWebhookSignature;
+    use ConvertsStripeAmounts, VerifiesWebhookSignature;
 
     protected array $supportedCurrencies = [
         'USD', 'EUR', 'GBP', 'PEN', 'MXN', 'BRL', 'ARS', 'CLP', 'COP',
@@ -28,8 +26,11 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         'DKK', 'PLN', 'CZK',
     ];
 
+    /** Clase cuya ausencia indica que falta el SDK. */
+    protected const SDK_CLASS = StripeClient::class;
+
     /** Cliente de Stripe inicializado en authenticate(). */
-    protected ?\Stripe\StripeClient $client = null;
+    protected ?StripeClient $client = null;
 
     public static function paymentMethodSchema(): array
     {
@@ -49,6 +50,8 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
 
     protected function authenticate(): void
     {
+        $this->ensureSdkInstalled(static::SDK_CLASS, 'stripe/stripe-php');
+
         $secret = $this->config['secret'] ?? null;
 
         if (empty($secret)) {
@@ -57,13 +60,13 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             );
         }
 
-        $className = 'Stripe\StripeClient';
-        $this->client = new $className($secret);
+        $this->client = new StripeClient($secret);
     }
 
     public function health(): bool
     {
         $this->authenticate();
+        $this->throttle('stripe_paymentintents:health');
 
         return $this->retry(function () {
             $this->client->balance->retrieve();
@@ -81,14 +84,15 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             );
         }
 
+        $amount = $this->toStripeAmount($request->amount, $request->currency);
         $this->authenticate();
         $this->throttle('stripe_paymentintents:purchase');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $amount) {
             $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
 
             $intent = $this->client->paymentIntents->create([
-                'amount' => (int) round($request->amount * 100),
+                'amount' => $amount,
                 'currency' => strtolower($request->currency),
                 'payment_method' => $request->cardToken,
                 'payment_method_types' => $paymentMethodTypes,
@@ -96,11 +100,11 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
                 'metadata' => $request->metadata,
                 'confirm' => true,
                 'receipt_email' => $request->email ?: null,
-            ]);
+            ], $request->idempotencyKey ? ['idempotency_key' => $request->idempotencyKey] : []);
 
             $status = $this->mapStatus($intent->status);
 
-            $response = new PaymentResponse(
+            return new PaymentResponse(
                 success: $status === 'completed' || $status === 'pending',
                 transactionId: $intent->id,
                 status: $status,
@@ -108,15 +112,12 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
                 errorMessage: $intent->last_payment_error?->message ?? null,
                 raw: $intent->toArray()
             );
-
-            event(new PaymentInitiated($response, 'stripe_paymentintents'));
-
-            return $response;
         });
     }
 
-    public function refund(string $transactionId, ?float $amount = null): bool
+    public function refund(string $transactionId, ?string $amount = null): bool
     {
+        self::assertDecimalAmount($amount);
         $this->authenticate();
         $this->throttle('stripe_paymentintents:refund');
 
@@ -124,12 +125,13 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             $params = ['payment_intent' => $transactionId];
 
             if ($amount !== null) {
-                $params['amount'] = (int) round($amount * 100);
+                $params['amount'] = $this->toStripeAmount(
+                    $amount,
+                    $this->client->paymentIntents->retrieve($transactionId)->currency,
+                );
             }
 
             $this->client->refunds->create($params);
-
-            event(new RefundProcessed('stripe_paymentintents', $transactionId, $amount));
 
             return true;
         });
@@ -138,28 +140,25 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
     public function payout(PayoutRequest $request): PayoutResponse
     {
         $this->validateCurrency($request->currency);
+        $amount = $this->toStripeAmount($request->amount, $request->currency);
         $this->authenticate();
         $this->throttle('stripe_paymentintents:payout');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $amount) {
             $transfer = $this->client->transfers->create([
-                'amount' => (int) round($request->amount * 100),
+                'amount' => $amount,
                 'currency' => strtolower($request->currency),
                 'destination' => $request->recipient,
                 'description' => $request->description,
                 'metadata' => $request->metadata,
             ]);
 
-            $response = new PayoutResponse(
+            return new PayoutResponse(
                 success: true,
                 payoutId: $transfer->id,
                 status: 'completed',
                 raw: $transfer->toArray()
             );
-
-            event(new PayoutProcessed($response, 'stripe_paymentintents'));
-
-            return $response;
         });
     }
 
@@ -174,12 +173,13 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         }
 
         $event = $this->verifyStripeSignature($request, $webhookSecret);
+        $this->authenticate();
 
         $type = $event['type'] ?? 'unknown';
         $object = $event['data']['object'] ?? [];
 
         $transactionId = $object['id'] ?? null;
-        $amount = isset($object['amount']) ? (float) $object['amount'] / 100 : null;
+        $amount = $this->fromStripeAmount($object['amount'] ?? null, $object['currency'] ?? null);
         $currency = $object['currency'] ?? null;
 
         if (str_starts_with($type, 'payment_intent.')) {
@@ -187,7 +187,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         } elseif ($type === 'charge.refunded') {
             $transactionId = $object['payment_intent'] ?? $transactionId;
             $status = 'refunded';
-            $amount = isset($object['amount_refunded']) ? (float) $object['amount_refunded'] / 100 : null;
+            $amount = $this->fromStripeAmount($object['amount_refunded'] ?? null, $object['currency'] ?? null);
         } else {
             $status = 'pending';
         }
@@ -230,7 +230,8 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
     protected function extractCardDetails(string $paymentIntentId): array
     {
         try {
-            $pi = $this->client->paymentIntents->retrieve($paymentIntentId);
+            $this->throttle('stripe_paymentintents:webhook');
+            $pi = $this->retry(fn () => $this->client->paymentIntents->retrieve($paymentIntentId));
 
             if ($pi->latest_charge && $pi->latest_charge->payment_method_details?->card) {
                 $c = $pi->latest_charge->payment_method_details->card;
@@ -244,7 +245,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
 
             $pmId = $pi->payment_method ?? null;
             if ($pmId && str_starts_with($pmId, 'pm_')) {
-                $pm = $this->client->paymentMethods->retrieve($pmId);
+                $pm = $this->retry(fn () => $this->client->paymentMethods->retrieve($pmId));
 
                 return [
                     'payment_method' => $pm->card->brand ?? $pm->type ?? 'card',
@@ -254,7 +255,11 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             }
 
             return [];
-        } catch (\Exception) {
+        } catch (PaymentGatewayException $exception) {
+            $this->logRecoveredFailure('No se pudo leer la tarjeta del PaymentIntent de Stripe.', [
+                'payment_intent' => $paymentIntentId,
+            ], $exception);
+
             return [];
         }
     }

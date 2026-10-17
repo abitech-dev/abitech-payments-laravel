@@ -6,9 +6,12 @@ namespace Abitech\Payments\Tests\Feature;
 
 use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
+use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\Drivers\Testing\FakePaymentDriver;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\Tests\TestCase;
+use Illuminate\Http\Request;
+use RuntimeException;
 
 class FakePaymentDriverTest extends TestCase
 {
@@ -28,7 +31,7 @@ class FakePaymentDriverTest extends TestCase
     public function test_purchase_returns_payment_response(): void
     {
         $response = $this->fake->purchase(new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             email: 'test@test.com',
             description: 'Test'
@@ -50,7 +53,7 @@ class FakePaymentDriverTest extends TestCase
         $this->fake->shouldReturn('purchase', $custom);
 
         $response = $this->fake->purchase(new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             email: 'test@test.com',
             description: 'Test'
@@ -68,7 +71,7 @@ class FakePaymentDriverTest extends TestCase
         $this->expectExceptionMessage('Gateway timeout');
 
         $this->fake->purchase(new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             email: 'test@test.com',
             description: 'Test'
@@ -81,7 +84,7 @@ class FakePaymentDriverTest extends TestCase
 
         try {
             $this->fake->purchase(new PaymentRequest(
-                amount: 100.00,
+                amount: '100.00',
                 currency: 'USD',
                 email: 'test@test.com',
                 description: 'Test'
@@ -91,7 +94,7 @@ class FakePaymentDriverTest extends TestCase
         }
 
         $response = $this->fake->purchase(new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             email: 'test@test.com',
             description: 'Test'
@@ -103,7 +106,7 @@ class FakePaymentDriverTest extends TestCase
     public function test_assert_called(): void
     {
         $this->fake->purchase(new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             email: 'test@test.com',
             description: 'Test'
@@ -115,14 +118,14 @@ class FakePaymentDriverTest extends TestCase
 
     public function test_assert_called_fails_when_not_called(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->fake->assertCalled('purchase');
     }
 
     public function test_assert_called_count(): void
     {
         $dto = new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             email: 'test@test.com',
             description: 'Test'
@@ -138,7 +141,7 @@ class FakePaymentDriverTest extends TestCase
     public function test_assert_called_count_fails_on_mismatch(): void
     {
         $dto = new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             email: 'test@test.com',
             description: 'Test'
@@ -146,7 +149,7 @@ class FakePaymentDriverTest extends TestCase
 
         $this->fake->purchase($dto);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->fake->assertCalledCount('purchase', 3);
     }
 
@@ -159,13 +162,13 @@ class FakePaymentDriverTest extends TestCase
     public function test_assert_not_called_fails_when_called(): void
     {
         $this->fake->purchase(new PaymentRequest(
-            amount: 100.00,
+            amount: '100.00',
             currency: 'USD',
             email: 'test@test.com',
             description: 'Test'
         ));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->fake->assertNotCalled('purchase');
     }
 
@@ -179,10 +182,26 @@ class FakePaymentDriverTest extends TestCase
         $this->assertTrue($this->fake->refund('txn-1'));
     }
 
+    public function test_a_partial_refund_records_the_decimal_amount(): void
+    {
+        $this->fake->refund('txn-1', '10.50');
+
+        $this->fake->assertCalled('refund', fn (string $id, ?string $amount) => $amount === '10.50');
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_a_refund_amount_that_is_not_a_decimal_string_is_rejected(): void
+    {
+        $this->expectException(PaymentGatewayException::class);
+        $this->expectExceptionCode(422);
+
+        $this->fake->refund('txn-1', '10,50');
+    }
+
     public function test_payout_returns_response(): void
     {
-        $response = $this->fake->payout(new \Abitech\Payments\DTO\PayoutRequest(
-            amount: 100.00,
+        $response = $this->fake->payout(new PayoutRequest(
+            amount: '100.00',
             currency: 'USD',
             recipient: 'user@test.com',
             description: 'Payout'
@@ -193,12 +212,13 @@ class FakePaymentDriverTest extends TestCase
 
     public function test_handle_webhook_returns_result(): void
     {
-        $request = \Illuminate\Http\Request::create('/webhook', 'POST', [
+        $request = Request::create('/webhook', 'POST', [
             'type' => 'payment',
             'data' => ['id' => '123'],
         ]);
 
         $result = $this->fake->handleWebhook($request);
         $this->assertSame('completed', $result->status);
+        $this->assertSame('100.00', $result->amount);
     }
 }

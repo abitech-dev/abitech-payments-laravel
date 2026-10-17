@@ -23,6 +23,13 @@ class PaymentManagerTest extends TestCase
         $this->assertInstanceOf(\Abitech\Payments\Drivers\Testing\FakePaymentDriver::class, $driver);
     }
 
+    public function test_each_request_resolves_a_fresh_manager_so_credentials_do_not_linger(): void
+    {
+        $this->app->forgetScopedInstances();
+
+        $this->assertNotSame($this->manager, $this->app->make(PaymentManager::class));
+    }
+
     public function test_it_extends_laravel_manager(): void
     {
         $this->assertInstanceOf(\Illuminate\Support\Manager::class, $this->manager);

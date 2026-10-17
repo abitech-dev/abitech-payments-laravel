@@ -6,8 +6,6 @@ namespace Abitech\Payments\Concerns;
 
 use Illuminate\Http\Request;
 use MercadoPago\Client\Payment\PaymentClient;
-use MercadoPago\Exceptions\MPApiException;
-use Exception;
 use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 
@@ -21,6 +19,7 @@ use Abitech\Payments\Exceptions\PaymentGatewayException;
  */
 trait HandlesMercadoPagoWebhook
 {
+    use ConvertsMercadoPagoAmounts;
     use VerifiesWebhookSignature;
 
     /**
@@ -76,40 +75,21 @@ trait HandlesMercadoPagoWebhook
             );
         }
 
-        $client = new PaymentClient();
+        $this->throttle($this->getGatewayName() . ':webhook');
+        $payment = $this->retry(fn () => (new PaymentClient())->get((int) $paymentId));
 
-        try {
-            $payment = $client->get((int) $paymentId);
-
-            return new WebhookResult(
-                gateway: $this->getGatewayName(),
-                eventType: $type,
-                transactionId: (string) $payment->id,
-                status: $this->mapMercadoPagoStatus($payment->status),
-                amount: (float) $payment->transaction_amount,
-                currency: $payment->currency_id,
-                paymentMethod: $payment->payment_method_id ?? null,
-                cardBrand: $payment->card->issuer->name ?? null,
-                cardLastFour: $payment->card->last_four_digits ?? null,
-                installments: $payment->installments ?? null,
-                raw: json_decode(json_encode($payment), true)
-            );
-        } catch (MPApiException $e) {
-            $statusCode = $e->getStatusCode();
-            $body = json_encode($e->getApiResponse()->getContent());
-            $detail = "HTTP {$statusCode}: {$body}";
-
-            throw new PaymentGatewayException(
-                "Error de Mercado Pago al obtener el detalle del pago: " . $detail,
-                $statusCode ?: 500,
-                $e
-            );
-        } catch (Exception $e) {
-            throw new PaymentGatewayException(
-                "Error al procesar el webhook de Mercado Pago: " . $e->getMessage(),
-                500,
-                $e
-            );
-        }
+        return new WebhookResult(
+            gateway: $this->getGatewayName(),
+            eventType: $type,
+            transactionId: (string) $payment->id,
+            status: $this->mapMercadoPagoStatus($payment->status),
+            amount: $this->fromMercadoPagoAmount($payment->transaction_amount),
+            currency: $payment->currency_id,
+            paymentMethod: $payment->payment_method_id ?? null,
+            cardBrand: $payment->card->issuer->name ?? null,
+            cardLastFour: $payment->card->last_four_digits ?? null,
+            installments: $payment->installments ?? null,
+            raw: json_decode(json_encode($payment), true)
+        );
     }
 }

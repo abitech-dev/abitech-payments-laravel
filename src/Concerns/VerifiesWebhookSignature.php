@@ -6,6 +6,10 @@ namespace Abitech\Payments\Concerns;
 
 use Illuminate\Http\Request;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
+use Exception;
+use Stripe\Exception\SignatureVerificationException;
+use Stripe\Exception\UnexpectedValueException;
+use Stripe\Webhook;
 
 /**
  * Verifica firmas HMAC de webhooks entrantes de Stripe y MercadoPago.
@@ -21,7 +25,7 @@ trait VerifiesWebhookSignature
      */
     protected function verifyStripeSignature(Request $request, string $secret, int $tolerance = 300): array
     {
-        if (!class_exists('Stripe\Webhook')) {
+        if (!class_exists(Webhook::class)) {
             throw new PaymentGatewayException(
                 "El SDK de Stripe no esta instalado. Ejecute: composer require stripe/stripe-php"
             );
@@ -38,8 +42,7 @@ trait VerifiesWebhookSignature
         }
 
         try {
-            $webhookClass = 'Stripe\Webhook';
-            $event = $webhookClass::constructEvent(
+            $event = Webhook::constructEvent(
                 $payload,
                 $signature,
                 $secret,
@@ -47,9 +50,9 @@ trait VerifiesWebhookSignature
             );
 
             return $event->toArray();
-        } catch (\Exception $e) {
-            if ($e instanceof \Stripe\Exception\SignatureVerificationException
-                || $e instanceof \Stripe\Exception\UnexpectedValueException) {
+        } catch (Exception $e) {
+            if ($e instanceof SignatureVerificationException
+                || $e instanceof UnexpectedValueException) {
                 throw new PaymentGatewayException(
                     "Firma de webhook de Stripe invalida: " . $e->getMessage(),
                     403,

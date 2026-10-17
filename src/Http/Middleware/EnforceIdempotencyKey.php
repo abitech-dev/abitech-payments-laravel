@@ -63,7 +63,7 @@ class EnforceIdempotencyKey
 
         if (empty($idempotencyKey)) {
             return $this->errorResponse(
-                "Se requiere el encabezado {$header} para operaciones de pago."
+                "Se requiere el encabezado {$header}."
             );
         }
 

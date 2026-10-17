@@ -26,7 +26,7 @@ Flujo de redireccion al checkout hospedado de Mercado Pago.
 **Uso:**
 ```php
 $response = $manager->driver('mercadopago_checkout')->purchase(new PaymentRequest(
-    amount: 100.00,
+    amount: '100.00',
     currency: 'PEN',
     email: 'cliente@email.com',
     description: 'Producto X',
@@ -59,7 +59,7 @@ Flujo de pago transparente (formulario propio). Requiere token de tarjeta genera
 **Uso:**
 ```php
 $response = $manager->driver('mercadopago_api')->purchase(new PaymentRequest(
-    amount: 100.00,
+    amount: '100.00',
     currency: 'PEN',
     email: 'cliente@email.com',
     description: 'Producto X',
@@ -92,7 +92,7 @@ El driver `mercadopago_checkout` soporta `SubscriptionInterface` (Preapproval AP
 $response = $manager->driver('mercadopago_checkout')->createSubscription(new SubscriptionRequest(
     planId: 'plan-mensual',
     email: 'cliente@email.com',
-    amount: 49.90,
+    amount: '49.90',
     currency: 'PEN',
     interval: 'month',
     intervalCount: 1,
