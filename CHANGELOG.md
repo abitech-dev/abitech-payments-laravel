@@ -6,6 +6,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+## [2.0.0] - 2026-10-17
+
 ### Cambiado
 
 - **Incompatible.** Deja de admitir Laravel 11, porque ya no tiene versión sin
@@ -114,4 +116,5 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Eliminado `minimum-stability: dev` de composer.json
 - Corregidas restricciones de version de PHP/illuminate
 
+[2.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.0
 [1.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v1.0.0
