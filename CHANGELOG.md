@@ -6,6 +6,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+## [2.0.2] - 2026-10-17
+
+### Corregido
+
+- Mercado Pago Checkout envía la `quantity` de cada ítem de `metadata.items`
+  con su precio unitario; antes mandaba siempre 1, así que un ítem con cantidad
+  2 se cobraba una sola vez. Si la suma de `price × quantity`, hecha con bcmath,
+  no es `amount`, o si un ítem no trae `price` como cadena decimal y `quantity`
+  como entero de 1 en adelante, `purchase()` lanza `PaymentGatewayException` 422
+  antes de autenticar, en vez de cobrar otro importe.
+- Mercado Pago Checkout sin `idempotencyKey` arma el `id` de cada ítem con un
+  prefijo generado; antes quedaba `-1`, `-2`.
+- Stripe Checkout cobra `amount` en una sola línea de cantidad 1 e ignora
+  `metadata['quantity']`, que multiplicaba el total. Una app que la enviaba
+  debe pasar el total en `amount`.
+
 ## [2.0.0] - 2026-10-17
 
 ### Cambiado
@@ -116,5 +132,6 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Eliminado `minimum-stability: dev` de composer.json
 - Corregidas restricciones de version de PHP/illuminate
 
+[2.0.2]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.2
 [2.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.0
 [1.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v1.0.0
