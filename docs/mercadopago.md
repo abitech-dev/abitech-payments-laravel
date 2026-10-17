@@ -34,6 +34,10 @@ $response = $manager->driver('mercadopago_checkout')->purchase(new PaymentReques
     successUrl: 'https://miapp.com/gracias',
     cancelUrl: 'https://miapp.com/error',
     metadata: [
+        'items' => [
+            ['name' => 'Licencia anual', 'price' => '40.00', 'quantity' => 2],
+            ['name' => 'Soporte', 'price' => '20.00'],
+        ],
         'pending_url' => 'https://miapp.com/pendiente',
         'notification_url' => 'https://miapp.com/api/webhooks/mercadopago',
         'payment_methods' => [
@@ -45,6 +49,20 @@ $response = $manager->driver('mercadopago_checkout')->purchase(new PaymentReques
 
 redirect($response->redirectUrl);
 ```
+
+**Ítems (`metadata.items`):**
+
+| Clave | Tipo | Uso |
+|-------|------|-----|
+| `name` | cadena | Título del ítem; si falta, `description` del ítem o «Producto» |
+| `price` | cadena decimal (`'19.99'`) | Precio unitario; obligatorio |
+| `quantity` | entero ≥ 1 | Cantidad; 1 si falta |
+
+La suma de `price × quantity`, hecha con bcmath, debe ser igual a `amount`. Si
+no lo es, o si un ítem no cumple la tabla, `purchase()` lanza
+`PaymentGatewayException` 422 antes de llamar a Mercado Pago. Sin `items`, la
+preferencia lleva una sola línea por `amount` con cantidad 1. Cada ítem recibe
+el `id` `<idempotencyKey>-<n>`, con un prefijo generado si no hay clave.
 
 ### API Bricks (`mercadopago_api`)
 

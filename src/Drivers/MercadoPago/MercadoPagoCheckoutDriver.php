@@ -16,6 +16,8 @@ use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Preference\PreferenceClient;
 use MercadoPago\Client\Payment\PaymentClient;
@@ -98,13 +100,12 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
     public function purchase(PaymentRequest $request): PaymentResponse
     {
         $this->validateCurrency($request->currency);
+        $items = $this->buildItems($request);
         $this->authenticate();
         $this->throttle('mercadopago_checkout:purchase');
 
-        return $this->retry(function () use ($request) {
+        return $this->retry(function () use ($request, $items) {
             $client = new PreferenceClient();
-
-            $items = $this->buildItems($request);
 
             $backUrls = $request->metadata['back_urls'] ?? [];
             $successUrl = $request->successUrl ?? $backUrls['success'] ?? $request->metadata['success_url'] ?? null;
@@ -314,27 +315,89 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         };
     }
 
+    /**
+     * Sin `items` en metadata, la preferencia lleva una sola línea por el monto.
+     *
+     * @return list<array<string, mixed>>
+     */
     protected function buildItems(PaymentRequest $request): array
     {
-        if (!empty($request->metadata['items'])) {
-            $prefix = $request->idempotencyKey ?? uniqid('', true);
+        $currency = strtoupper($request->currency);
 
-            return collect($request->metadata['items'])->map(fn ($item, $i) => [
-                'id' => "{$prefix}-" . ($i + 1),
-                'title' => $item['name'] ?? $item['description'] ?? 'Producto',
+        if (empty($request->metadata['items'])) {
+            return [[
+                'id' => $request->idempotencyKey ?? uniqid('', true),
+                'title' => $request->description,
                 'quantity' => 1,
-                'unit_price' => $this->toMercadoPagoAmount((string) ($item['price'] ?? '0')),
-                'currency_id' => strtoupper($request->currency),
-            ])->values()->all();
+                'unit_price' => $this->toMercadoPagoAmount($request->amount),
+                'currency_id' => $currency,
+            ]];
         }
 
-        return [[
-            'id' => $request->idempotencyKey ?? uniqid('', true),
-            'title' => $request->description,
-            'quantity' => 1,
-            'unit_price' => $this->toMercadoPagoAmount($request->amount),
-            'currency_id' => strtoupper($request->currency),
-        ]];
+        $prefix = $request->idempotencyKey ?? uniqid('', true);
+        $lines = collect($request->metadata['items'])->values()->map(fn (array $item, int $index) => [
+            'id' => "{$prefix}-" . ($index + 1),
+            'title' => $item['name'] ?? $item['description'] ?? 'Producto',
+            'quantity' => $item['quantity'] ?? 1,
+            'unit_price' => $item['price'] ?? null,
+            'currency_id' => $currency,
+        ]);
+
+        self::assertLinesAddUpTo($lines, $request->amount);
+
+        return $lines->map(fn (array $line) => [
+            ...$line,
+            'unit_price' => $this->toMercadoPagoAmount($line['unit_price']),
+        ])->all();
+    }
+
+    /**
+     * Mercado Pago cobra la suma de precio unitario por cantidad, así que esa
+     * suma, hecha con bcmath, debe ser exactamente el monto a cobrar.
+     *
+     * @param  Collection<int, array<string, mixed>>  $lines
+     */
+    private static function assertLinesAddUpTo(Collection $lines, string $amount): void
+    {
+        $lines->each(function (array $line, int $index) {
+            $number = $index + 1;
+
+            if (! is_string($line['unit_price'])) {
+                throw new PaymentGatewayException(
+                    "El ítem {$number} no trae su precio unitario como cadena decimal, como 19.99.",
+                    422
+                );
+            }
+
+            self::assertDecimalAmount($line['unit_price']);
+
+            if (! is_int($line['quantity']) || $line['quantity'] < 1) {
+                throw new PaymentGatewayException(
+                    "La cantidad del ítem {$number} debe ser un entero mayor que cero.",
+                    422
+                );
+            }
+        });
+
+        $scale = $lines->map(fn (array $line) => self::decimalPlaces($line['unit_price']))
+            ->push(self::decimalPlaces($amount))
+            ->max();
+        $total = $lines->reduce(
+            fn (string $sum, array $line) => bcadd($sum, bcmul($line['unit_price'], (string) $line['quantity'], $scale), $scale),
+            '0'
+        );
+
+        if (bccomp($total, $amount, $scale) !== 0) {
+            throw new PaymentGatewayException(
+                "Los ítems suman {$total} y el monto a cobrar es {$amount}.",
+                422
+            );
+        }
+    }
+
+    private static function decimalPlaces(string $amount): int
+    {
+        return Str::contains($amount, '.') ? Str::length(Str::after($amount, '.')) : 0;
     }
 
     protected function buildMercadoPagoPayer(PaymentRequest $request): array
