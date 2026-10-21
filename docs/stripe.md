@@ -33,13 +33,16 @@ $response = $manager->driver('stripe_checkout')->purchase(new PaymentRequest(
     successUrl: 'https://miapp.com/gracias?session_id={CHECKOUT_SESSION_ID}',
     cancelUrl: 'https://miapp.com/carrito',
     metadata: [
-        'quantity' => 1,
         'payment_method_types' => ['card', 'ideal', 'bancontact'],
     ],
 ));
 
 redirect($response->redirectUrl);
 ```
+
+La sesión cobra `amount` en una sola línea de cantidad 1, con `description` como
+nombre del producto. Stripe no recibe `metadata.items` ni otra cantidad, así que
+el total cobrado siempre es `amount`.
 
 ### PaymentIntents (`stripe_paymentintents`)
 
