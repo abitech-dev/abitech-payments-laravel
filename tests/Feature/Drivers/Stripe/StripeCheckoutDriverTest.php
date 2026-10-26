@@ -273,6 +273,19 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame('ignored', $result->status);
     }
 
+    public function test_the_webhook_currency_is_an_uppercase_iso_4217_code(): void
+    {
+        FakeStripeHttpClient::install([]);
+        $request = StripeWebhookRequest::signed('checkout.session.completed', [
+            'id' => 'cs_1',
+            'object' => 'checkout.session',
+            'amount_total' => 1999,
+            'currency' => 'pen',
+        ], self::WEBHOOK_SECRET);
+
+        $this->assertSame('PEN', $this->driver()->handleWebhook($request)->currency);
+    }
+
     /**
      * @return array<string, array{0: Closure(StripeCheckoutDriver): mixed, 1: list<array<string, mixed>>}>
      */
@@ -287,7 +300,83 @@ class StripeCheckoutDriverTest extends TestCase
             'cancelSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->cancelSubscription('sub_1'), [self::subscriptionObject()]],
             'updateSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->updateSubscription('sub_1', self::subscription()), [self::subscriptionObject()]],
             'getSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->getSubscription('sub_1'), [self::subscriptionObject()]],
+            'findPayment' => [static fn (StripeCheckoutDriver $driver) => $driver->findPayment('cs_1'), [self::sessionWith('complete', 'paid', 'succeeded')]],
         ];
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>, 1: string}>
+     */
+    public static function sessionStatuses(): array
+    {
+        return [
+            'paid' => [self::sessionWith('complete', 'paid', 'succeeded'), 'completed'],
+            'free' => [self::sessionWith('complete', 'no_payment_required', null), 'completed'],
+            'open' => [self::sessionWith('open', 'unpaid', 'requires_payment_method'), 'pending'],
+            'async payment processing' => [self::sessionWith('complete', 'unpaid', 'processing'), 'pending'],
+            'async payment failed' => [self::sessionWith('complete', 'unpaid', 'requires_payment_method'), 'failed'],
+            'expired' => [self::sessionWith('expired', 'unpaid', 'canceled'), 'failed'],
+            'refunded' => [self::sessionWith('complete', 'paid', 'succeeded', refunded: true), 'refunded'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $session
+     */
+    #[DataProvider('sessionStatuses')]
+    public function test_find_payment_reads_the_checkout_session(array $session, string $status): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, $session]]);
+
+        $result = $this->driver()->findPayment('cs_1');
+
+        $this->assertSame('get', $stripe->requests[0]['method']);
+        $this->assertStringEndsWith('/v1/checkout/sessions/cs_1', $stripe->requests[0]['url']);
+        $this->assertSame(['payment_intent.latest_charge'], $stripe->requests[0]['params']['expand']);
+        $this->assertSame($status, $result->status);
+        $this->assertSame('cs_1', $result->transactionId);
+        $this->assertSame('checkout.session', $result->eventType);
+        $this->assertSame('stripe', $result->gateway);
+        $this->assertSame('19.99', $result->amount);
+        $this->assertSame('PEN', $result->currency);
+        $this->assertSame('ref-1', $result->raw['client_reference_id']);
+    }
+
+    public function test_find_payment_reads_the_card_of_the_expanded_charge(): void
+    {
+        FakeStripeHttpClient::install([[200, self::sessionWith('complete', 'paid', 'succeeded')]]);
+
+        $result = $this->driver()->findPayment('cs_1');
+
+        $this->assertSame('visa', $result->cardBrand);
+        $this->assertSame('4242', $result->cardLastFour);
+    }
+
+    public function test_find_payment_returns_null_for_an_unknown_session(): void
+    {
+        FakeStripeHttpClient::install([[404, ['error' => [
+            'code' => 'resource_missing',
+            'message' => "No such checkout.session: 'cs_x'",
+            'type' => 'invalid_request_error',
+        ]]]]);
+
+        $this->assertNull($this->driver()->findPayment('cs_x'));
+    }
+
+    public function test_find_payment_without_session_id_fails_before_authenticating_or_throttling(): void
+    {
+        config(['abitech_payments.gateways.stripe' => []]);
+        $stripe = FakeStripeHttpClient::install([]);
+
+        try {
+            $this->driver()->findPayment(externalReference: 'ref-1');
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(422, $exception->getCode());
+        }
+
+        $this->assertSame([], $stripe->requests);
+        $this->assertSame(0, $this->app->make(RateLimiter::class)->attempts('abitech_payments:stripe_checkout:find_payment'));
     }
 
     /**
@@ -390,6 +479,34 @@ class StripeCheckoutDriverTest extends TestCase
     private static function checkoutSession(): array
     {
         return ['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/cs_1'];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function sessionWith(string $status, string $paymentStatus, ?string $intentStatus, bool $refunded = false): array
+    {
+        return [
+            'id' => 'cs_1',
+            'object' => 'checkout.session',
+            'status' => $status,
+            'payment_status' => $paymentStatus,
+            'client_reference_id' => 'ref-1',
+            'amount_total' => 1999,
+            'currency' => 'pen',
+            'payment_method_types' => ['card'],
+            'payment_intent' => $intentStatus === null ? null : [
+                'id' => 'pi_1',
+                'object' => 'payment_intent',
+                'status' => $intentStatus,
+                'latest_charge' => [
+                    'id' => 'ch_1',
+                    'object' => 'charge',
+                    'refunded' => $refunded,
+                    'payment_method_details' => ['card' => ['brand' => 'visa', 'last4' => '4242']],
+                ],
+            ],
+        ];
     }
 
     /**

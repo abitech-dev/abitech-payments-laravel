@@ -230,6 +230,20 @@ class StripePaymentIntentsDriverTest extends TestCase
         $this->assertSame('5.00', $result->amount);
     }
 
+    public function test_the_webhook_currency_is_an_uppercase_iso_4217_code(): void
+    {
+        FakeStripeHttpClient::install([]);
+        $request = StripeWebhookRequest::signed('charge.refunded', [
+            'id' => 'ch_1',
+            'object' => 'charge',
+            'payment_intent' => 'pi_1',
+            'amount_refunded' => 500,
+            'currency' => 'pen',
+        ], self::WEBHOOK_SECRET);
+
+        $this->assertSame('PEN', $this->driver()->handleWebhook($request)->currency);
+    }
+
     /**
      * @return array<string, array{0: Closure(StripePaymentIntentsDriver): mixed, 1: list<array<string, mixed>>}>
      */
@@ -240,7 +254,80 @@ class StripePaymentIntentsDriverTest extends TestCase
             'refund' => [static fn (StripePaymentIntentsDriver $driver) => $driver->refund('pi_1'), [['id' => 're_1', 'object' => 'refund']]],
             'payout' => [static fn (StripePaymentIntentsDriver $driver) => $driver->payout(self::payout()), [['id' => 'tr_1', 'object' => 'transfer']]],
             'health' => [static fn (StripePaymentIntentsDriver $driver) => $driver->health(), [['object' => 'balance']]],
+            'findPayment' => [static fn (StripePaymentIntentsDriver $driver) => $driver->findPayment('pi_1'), [self::intentWith('succeeded')]],
         ];
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>, 1: string}>
+     */
+    public static function intentStatuses(): array
+    {
+        return [
+            'succeeded' => [self::intentWith('succeeded'), 'completed'],
+            'requires action' => [self::intentWith('requires_action'), 'pending'],
+            'processing' => [self::intentWith('processing'), 'pending'],
+            'canceled' => [self::intentWith('canceled'), 'failed'],
+            'refunded' => [self::intentWith('succeeded', refunded: true), 'refunded'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $intent
+     */
+    #[DataProvider('intentStatuses')]
+    public function test_find_payment_reads_the_payment_intent(array $intent, string $status): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, $intent]]);
+
+        $result = $this->driver()->findPayment('pi_1');
+
+        $this->assertSame('get', $stripe->requests[0]['method']);
+        $this->assertStringEndsWith('/v1/payment_intents/pi_1', $stripe->requests[0]['url']);
+        $this->assertSame(['latest_charge'], $stripe->requests[0]['params']['expand']);
+        $this->assertSame($status, $result->status);
+        $this->assertSame('pi_1', $result->transactionId);
+        $this->assertSame('payment_intent', $result->eventType);
+        $this->assertSame('stripe', $result->gateway);
+        $this->assertSame('10.00', $result->amount);
+        $this->assertSame('PEN', $result->currency);
+    }
+
+    public function test_find_payment_reads_the_card_of_the_expanded_charge(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, self::intentWith('succeeded')]]);
+
+        $result = $this->driver()->findPayment('pi_1');
+
+        $this->assertSame('visa', $result->cardBrand);
+        $this->assertSame('4242', $result->cardLastFour);
+        $this->assertCount(1, $stripe->requests);
+    }
+
+    public function test_find_payment_returns_null_for_an_unknown_payment_intent(): void
+    {
+        FakeStripeHttpClient::install([[404, ['error' => [
+            'code' => 'resource_missing',
+            'message' => "No such payment_intent: 'pi_x'",
+            'type' => 'invalid_request_error',
+        ]]]]);
+
+        $this->assertNull($this->driver()->findPayment('pi_x'));
+    }
+
+    public function test_find_payment_without_payment_intent_id_fails_before_authenticating(): void
+    {
+        config(['abitech_payments.gateways.stripe' => []]);
+        $stripe = FakeStripeHttpClient::install([]);
+
+        try {
+            $this->driver()->findPayment(externalReference: 'ref-1');
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(422, $exception->getCode());
+        }
+
+        $this->assertSame([], $stripe->requests);
     }
 
     /**
@@ -329,6 +416,26 @@ class StripePaymentIntentsDriverTest extends TestCase
     private static function payout(): PayoutRequest
     {
         return new PayoutRequest(amount: '20.50', currency: 'USD', recipient: 'acct_1', description: 'Liquidacion');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function intentWith(string $status, bool $refunded = false): array
+    {
+        return [
+            'id' => 'pi_1',
+            'object' => 'payment_intent',
+            'status' => $status,
+            'amount' => 1000,
+            'currency' => 'pen',
+            'latest_charge' => [
+                'id' => 'ch_1',
+                'object' => 'charge',
+                'refunded' => $refunded,
+                'payment_method_details' => ['card' => ['brand' => 'visa', 'last4' => '4242']],
+            ],
+        ];
     }
 
     private function driver(): StripePaymentIntentsDriver

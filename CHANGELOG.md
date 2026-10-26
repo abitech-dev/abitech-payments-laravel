@@ -6,6 +6,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+## [2.1.0] - 2026-10-26
+
+### Agregado
+
+- `findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult`
+  consulta el estado de un pago sin esperar el webhook, para conciliar un
+  checkout cuyo aviso no llegó. Devuelve el mismo `WebhookResult` que
+  `handleWebhook()`, o `null` si el pago no existe.
+  - Mercado Pago lee el pago por su id o, sin id, busca por
+    `external_reference` y elige el pago aprobado o el más reciente.
+  - Stripe Checkout lee la sesión `cs_…` con `payment_intent.latest_charge`
+    expandido y Stripe PaymentIntents lee el PaymentIntent; los dos exigen el
+    id y responden 422 sin él.
+  - `FakePaymentDriver` devuelve un pago completado y simula uno inexistente
+    con `shouldReturn('findPayment', null)`.
+- `PaymentGatewayInterface` declara `findPayment()`. Un driver propio que
+  implemente la interfaz fuera del paquete debe agregarla; hasta producción
+  un cambio del contrato sube solo la versión menor.
+
+### Corregido
+
+- `WebhookResult::$currency` lleva el código ISO 4217 en mayúsculas en todos
+  los drivers; los webhooks de Stripe lo devolvían en minúsculas (`pen`). Una
+  app que lo pasaba a mayúsculas por su cuenta ya no necesita hacerlo.
+
 ## [2.0.2] - 2026-10-17
 
 ### Corregido
@@ -132,6 +157,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Eliminado `minimum-stability: dev` de composer.json
 - Corregidas restricciones de version de PHP/illuminate
 
+[2.1.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.1.0
 [2.0.2]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.2
 [2.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.0
 [1.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v1.0.0

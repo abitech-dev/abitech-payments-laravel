@@ -89,6 +89,26 @@ trait RetriesApiCalls
     }
 
     /**
+     * Igual que retry(), para una consulta; el 404 de la pasarela da null.
+     *
+     * @template T
+     * @param callable(): T $callback
+     * @return T|null
+     */
+    protected function findWithRetry(callable $callback): mixed
+    {
+        try {
+            return $this->retry($callback);
+        } catch (PaymentGatewayException $e) {
+            if ($e->getCode() === 404) {
+                return null;
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
      * Determina si un error HTTP es reintentable basado en su codigo de estado.
      */
     protected function isRetryable(PaymentGatewayException $e): bool

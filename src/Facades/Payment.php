@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static bool refund(string $transactionId, ?string $amount = null)
  * @method static \Abitech\Payments\DTO\PayoutResponse payout(\Abitech\Payments\DTO\PayoutRequest $request)
  * @method static \Abitech\Payments\DTO\WebhookResult handleWebhook(\Illuminate\Http\Request $request)
+ * @method static \Abitech\Payments\DTO\WebhookResult|null findPayment(?string $transactionId = null, ?string $externalReference = null)
  * @method static bool health()
  * @method static \Abitech\Payments\DTO\SubscriptionResponse createSubscription(\Abitech\Payments\DTO\SubscriptionRequest $request)
  * @method static \Abitech\Payments\DTO\SubscriptionResponse cancelSubscription(string $subscriptionId, ?string $reason = null)

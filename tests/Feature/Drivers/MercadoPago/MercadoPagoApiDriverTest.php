@@ -12,6 +12,7 @@ use Abitech\Payments\PaymentManager;
 use Abitech\Payments\Tests\Doubles\FakeMercadoPagoHttpClient;
 use Abitech\Payments\Tests\TestCase;
 use Closure;
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -189,6 +190,83 @@ class MercadoPagoApiDriverTest extends TestCase
     }
 
     /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function paymentStatuses(): array
+    {
+        return [
+            'approved' => ['approved', 'completed'],
+            'in process' => ['in_process', 'pending'],
+            'rejected' => ['rejected', 'failed'],
+        ];
+    }
+
+    #[DataProvider('paymentStatuses')]
+    public function test_find_payment_reads_the_payment_by_its_id(string $gatewayStatus, string $status): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[200, self::payment(123, $gatewayStatus)]]);
+
+        $result = $this->driver()->findPayment('123');
+
+        $this->assertSame('/v1/payments/123', $mercadoPago->requests[0]->getUri());
+        $this->assertSame($status, $result->status);
+        $this->assertSame('123', $result->transactionId);
+        $this->assertSame('50.50', $result->amount);
+        $this->assertSame('PEN', $result->currency);
+        $this->assertSame('visa', $result->paymentMethod);
+        $this->assertSame('4242', $result->cardLastFour);
+        $this->assertSame('payment', $result->eventType);
+        $this->assertSame('mercadopago_api', $result->gateway);
+        $this->assertSame('ref-1', $result->raw['external_reference']);
+    }
+
+    public function test_find_payment_with_an_id_does_not_search_the_reference(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[200, self::payment(123, 'approved')]]);
+
+        $this->driver()->findPayment('123', 'ref-1');
+
+        $this->assertCount(1, $mercadoPago->requests);
+        $this->assertSame('/v1/payments/123', $mercadoPago->requests[0]->getUri());
+    }
+
+    public function test_find_payment_returns_null_for_an_unknown_payment(): void
+    {
+        FakeMercadoPagoHttpClient::install([[404, ['message' => 'Payment not found', 'status' => 404]]]);
+
+        $this->assertNull($this->driver()->findPayment('999'));
+    }
+
+    /**
+     * @return array<string, array{0: ?string, 1: ?string}>
+     */
+    public static function invalidLookups(): array
+    {
+        return [
+            'without id or reference' => [null, null],
+            'empty id and reference' => ['', ''],
+            'preference id' => ['202809963-920c288b-4ebb-40be-966f-700250fa5370', null],
+        ];
+    }
+
+    #[DataProvider('invalidLookups')]
+    public function test_an_invalid_lookup_fails_before_authenticating_or_throttling(?string $transactionId, ?string $externalReference): void
+    {
+        config(['abitech_payments.gateways.mercadopago' => []]);
+        $mercadoPago = FakeMercadoPagoHttpClient::install([]);
+
+        try {
+            $this->driver()->findPayment($transactionId, $externalReference);
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(422, $exception->getCode());
+        }
+
+        $this->assertSame([], $mercadoPago->requests);
+        $this->assertSame(0, $this->app->make(RateLimiter::class)->attempts('abitech_payments:mercadopago_api:find_payment'));
+    }
+
+    /**
      * @return array<string, array{0: Closure(MercadoPagoApiDriver): mixed, 1: array<string, mixed>}>
      */
     public static function operations(): array
@@ -197,6 +275,7 @@ class MercadoPagoApiDriverTest extends TestCase
             'purchase' => [static fn (MercadoPagoApiDriver $driver) => $driver->purchase(self::cardPayment()), ['id' => 123, 'status' => 'approved']],
             'refund' => [static fn (MercadoPagoApiDriver $driver) => $driver->refund('123'), ['id' => 1, 'status' => 'approved']],
             'payout' => [static fn (MercadoPagoApiDriver $driver) => $driver->payout(self::payout()), ['id' => 125, 'status' => 'approved']],
+            'findPayment' => [static fn (MercadoPagoApiDriver $driver) => $driver->findPayment('123'), self::payment(123, 'approved')],
         ];
     }
 
@@ -277,6 +356,24 @@ class MercadoPagoApiDriverTest extends TestCase
     private static function payout(): PayoutRequest
     {
         return new PayoutRequest(amount: '20.50', currency: 'PEN', recipient: 'vendedor@example.com', description: 'Liquidacion');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function payment(int $id, string $status): array
+    {
+        return [
+            'id' => $id,
+            'status' => $status,
+            'external_reference' => 'ref-1',
+            'date_created' => '2026-10-26T10:00:00.000-05:00',
+            'transaction_amount' => 50.5,
+            'currency_id' => 'PEN',
+            'payment_method_id' => 'visa',
+            'installments' => 1,
+            'card' => ['last_four_digits' => '4242'],
+        ];
     }
 
     private function driver(): MercadoPagoApiDriver

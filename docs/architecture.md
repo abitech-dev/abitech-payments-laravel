@@ -22,6 +22,7 @@ Driver Concreto (StripeCheckoutDriver, MercadoPagoApiDriver, ...)
     │  refund()    → bool
     │  payout()    → PayoutResponse
     │  handleWebhook() → WebhookResult
+    │  findPayment()   → ?WebhookResult
     │  health()    → bool
     ▼
 API HTTP de la pasarela (Stripe API, MercadoPago API)
@@ -163,6 +164,30 @@ class NuevaPasarelaCheckoutDriver extends AbstractPaymentDriver
             raw: $request->all()
         );
     }
+
+    public function findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult
+    {
+        if (blank($transactionId)) {
+            throw new PaymentGatewayException("Se requiere el id del pago.", 422);
+        }
+
+        $this->authenticate();
+        $this->throttle('nuevapasarela_checkout:find_payment');
+
+        // findWithRetry() devuelve null si la pasarela responde 404
+        $payment = $this->findWithRetry(function () use ($transactionId) {
+            // Consulta del pago en la API de la pasarela
+            return ['id' => $transactionId, 'status' => 'approved'];
+        });
+
+        return $payment === null ? null : new WebhookResult(
+            gateway: 'nuevapasarela',
+            eventType: 'payment',
+            transactionId: $payment['id'],
+            status: 'completed',
+            raw: $payment
+        );
+    }
 }
 ```
 
@@ -221,6 +246,8 @@ El paquete provee varios traits reutilizables para drivers:
 | `RetriesApiCalls` | Reintenta llamadas con backoff: `$this->retry(fn() => ...)` |
 | `VerifiesWebhookSignature` | Verifica firmas HMAC de Stripe y MercadoPago |
 | `HandlesMercadoPagoWebhook` | Logica compartida de webhooks MP (solo para drivers MP) |
+| `HandlesMercadoPagoPaymentLookup` | `findPayment()` de los drivers MP, por id o por referencia externa |
+| `ReadsStripeCards` | Marca y últimos dígitos de un cargo de Stripe expandido |
 
 ---
 

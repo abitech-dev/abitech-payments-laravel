@@ -6,6 +6,7 @@ namespace Abitech\Payments\Drivers\Stripe;
 
 use Illuminate\Http\Request;
 use Abitech\Payments\Concerns\ConvertsStripeAmounts;
+use Abitech\Payments\Concerns\ReadsStripeCards;
 use Abitech\Payments\Contracts\SubscriptionInterface;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\VerifiesWebhookSignature;
@@ -22,7 +23,7 @@ use Stripe\StripeClient;
 
 class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
-    use ConvertsStripeAmounts, VerifiesWebhookSignature;
+    use ConvertsStripeAmounts, ReadsStripeCards, VerifiesWebhookSignature;
 
     /** @var string[] Divisas soportadas por Stripe. */
     protected array $supportedCurrencies = [
@@ -295,17 +296,66 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
 
     protected function readCardFromExpandedSession(array $session): array
     {
-        $card = $session['payment_intent']['latest_charge']['payment_method_details']['card'] ?? null;
+        return $this->cardFromStripeCharge($session['payment_intent']['latest_charge'] ?? null)
+            ?: ['payment_method' => ($session['payment_method_types'][0] ?? null)];
+    }
 
-        if ($card) {
-            return [
-                'payment_method' => $card['brand'] ?? 'card',
-                'brand' => $card['brand'] ?? null,
-                'last_four' => $card['last4'] ?? null,
-            ];
+    /**
+     * Consulta la sesión de Checkout (`cs_…`) con el cargo de su PaymentIntent.
+     */
+    public function findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult
+    {
+        if (blank($transactionId)) {
+            throw new PaymentGatewayException(
+                "Stripe Checkout consulta el pago por el id de la sesión (cs_…); la referencia externa no basta.",
+                422
+            );
         }
 
-        return ['payment_method' => ($session['payment_method_types'][0] ?? null)];
+        $this->authenticate();
+        $this->throttle('stripe_checkout:find_payment');
+
+        $session = $this->findWithRetry(fn () => $this->client->checkout->sessions->retrieve(
+            $transactionId,
+            ['expand' => ['payment_intent.latest_charge']]
+        ));
+
+        if ($session === null) {
+            return null;
+        }
+
+        $session = $session->toArray();
+        $card = $this->readCardFromExpandedSession($session);
+
+        return new WebhookResult(
+            gateway: 'stripe',
+            eventType: 'checkout.session',
+            transactionId: $session['id'],
+            status: $this->mapCheckoutSessionStatus($session),
+            amount: $this->fromStripeAmount($session['amount_total'] ?? null, $session['currency'] ?? null),
+            currency: $session['currency'] ?? null,
+            paymentMethod: $card['payment_method'] ?? null,
+            cardBrand: $card['brand'] ?? null,
+            cardLastFour: $card['last_four'] ?? null,
+            raw: $session
+        );
+    }
+
+    /**
+     * Una sesión completa sin pagar espera un cobro asíncrono mientras su
+     * PaymentIntent está en `processing`; en otro estado ese cobro falló.
+     */
+    protected function mapCheckoutSessionStatus(array $session): string
+    {
+        $intent = is_array($session['payment_intent'] ?? null) ? $session['payment_intent'] : [];
+
+        return match (true) {
+            ($intent['latest_charge']['refunded'] ?? false) === true => 'refunded',
+            in_array($session['payment_status'] ?? null, ['paid', 'no_payment_required'], true) => 'completed',
+            ($session['status'] ?? null) === 'expired' => 'failed',
+            ($session['status'] ?? null) === 'complete' && ($intent['status'] ?? null) !== 'processing' => 'failed',
+            default => 'pending',
+        };
     }
 
     protected function readCardFromPaymentIntent(?string $piId): array
