@@ -73,9 +73,10 @@ Dónde va cada pieza, `core/06`; cómo se escribe, `core/08`. Proyecto en
 equipo, y su versión vive en el repositorio privado `abitech-dev/_claude`,
 con el `stack` declarado en su `claude-sync.json`.
 
-- `rules/core/`, `rules/tech/{testing,documentation}.md`, `agents/`,
-  `hooks/*.py` y las skills son copia de la base global. Se editan en
-  `~/.claude` y llegan con `sync.py guardar global` y luego
+- `rules/core/`,
+  `rules/tech/{testing,documentation,continuous-integration}.md`,
+  `agents/`, `hooks/*.py` y las skills son copia de la base global. Se
+  editan en `~/.claude` y llegan con `sync.py guardar global` y luego
   `sync.py restaurar abitech-payments-laravel`.
 - Las demás de `rules/tech/` vienen de la biblioteca `stacks/`;
   `tech/laravel-package.md` es idéntica en `arsy-sso-client`. Se editan aquí
