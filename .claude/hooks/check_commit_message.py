@@ -13,6 +13,8 @@ from pathlib import Path
 
 MAX_ASUNTO = 50
 MAX_CUERPO = 72
+# El porqué cabe en dos líneas; más largo suele contar el diff.
+MAX_LINEAS_CUERPO = 2
 TIPOS = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
 # Terminaciones que delatan pasado o gerundio en el verbo inicial.
 NO_IMPERATIVO = ("ado", "ido", "ando", "endo")
@@ -103,6 +105,9 @@ def revisar_cuerpo(lineas: list[str]) -> list[str]:
         if len(linea.rstrip()) > MAX_CUERPO:
             fallos.append(f"la línea {indice + 2} del cuerpo pasa de {MAX_CUERPO} caracteres")
             break
+    prosa = [linea for linea in lineas if linea.strip() and not PIE.match(linea)]
+    if len(prosa) > MAX_LINEAS_CUERPO:
+        fallos.append(f"el cuerpo tiene {len(prosa)} líneas y el tope es {MAX_LINEAS_CUERPO}")
     for indice, linea in enumerate(lineas):
         if usa_dos_puntos(linea):
             fallos.append(f"la línea {indice + 2} del cuerpo usa «:» como conector; escriba oraciones separadas por punto")

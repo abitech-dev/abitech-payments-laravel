@@ -22,7 +22,7 @@ persiste, deduplica y decide.
 
 ```bash
 composer install
-vendor/bin/phpunit                     # Unit y Feature
+composer test                          # PHPUnit, Unit y Feature
 vendor/bin/phpunit --testsuite Unit    # Unit | Feature
 vendor/bin/phpunit --filter test_a_valid_mercadopago_signature_passes
 composer validate
@@ -35,15 +35,18 @@ local (`project/testing.md` regla 1).
 
 ## 3. Puertas de calidad
 
-CI en `.github/workflows/tests.yml` corre la suite con PHP 8.2 y Laravel
-12 en `--prefer-lowest`, PHP 8.3 con Laravel 12, y PHP 8.3 y 8.5 con
-Laravel 13, que exige PHP 8.3, con el bloqueo de avisos de Composer activo.
-Sin linters. Antes de entregar, estas tres con
-cero errores; `composer audit` sale con 0 tras actualizar el lock local
-con `composer update -W` dentro de los rangos.
+La CI (`.github/workflows/ci.yml`) corre en cada push a `main`, la rama
+de trabajo, y en cada PR hacia ella. Primero busca secretos con gitleaks
+(excepciones en `.gitleaks.toml`), valida `composer.json` y audita las
+dependencias resueltas. Luego corre `composer test` con PHP 8.2 y
+Laravel 12 en `--prefer-lowest`, PHP 8.3 con Laravel 12, y PHP 8.3 y 8.5
+con Laravel 13, que exige PHP 8.3, con el bloqueo de avisos de Composer
+activo. Sin linters. Antes de entregar, estas tres con cero errores;
+`composer audit` sale con 0 tras actualizar el lock local con
+`composer update -W` dentro de los rangos.
 
 ```bash
-vendor/bin/phpunit
+composer test
 composer validate
 composer audit --locked
 ```

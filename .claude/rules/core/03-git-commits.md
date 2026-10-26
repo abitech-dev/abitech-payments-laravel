@@ -27,7 +27,9 @@ Lo vigila `check_commit_message.py`; el procedimiento está en la skill
    conector salvo en pies estándar (`Refs:`, `BREAKING CHANGE:`),
    código y URL.
 6. **Longitud.** Asunto de hasta 50 caracteres, contados con el tipo y
-   el ámbito, y sin punto final. Cuerpo tras una línea en blanco, con
-   líneas de hasta 72.
+   el ámbito, y sin punto final. Cuerpo tras una línea en blanco, de una
+   o dos líneas de hasta 72; los pies no cuentan.
    - Mal: `feat(bandeja): agregar filtro por fecha de programación` (55).
    - Bien: `feat(servicios): filtrar por fecha programada` (45).
+   - Mal: un cuerpo de tres líneas que lista lo que agrega el cambio.
+   - Bien: `La fecha la fija el centro según cupos.`
