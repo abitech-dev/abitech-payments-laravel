@@ -82,6 +82,43 @@ class RetriesApiCallsTest extends TestCase
         }
     }
 
+    public function test_a_lookup_returns_null_when_the_gateway_answers_404(): void
+    {
+        $result = $this->findWithRetry(function () {
+            throw new PaymentGatewayException('No existe', 404);
+        });
+
+        $this->assertNull($result);
+    }
+
+    public function test_a_lookup_rethrows_any_other_error(): void
+    {
+        try {
+            $this->findWithRetry(function () {
+                throw new PaymentGatewayException('Bad request', 400);
+            });
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(400, $exception->getCode());
+        }
+    }
+
+    public function test_a_lookup_retries_like_any_other_call(): void
+    {
+        $attempts = 0;
+
+        $result = $this->findWithRetry(function () use (&$attempts) {
+            if (++$attempts === 1) {
+                throw new PaymentGatewayException('Servicio no disponible', 503);
+            }
+
+            return 'pago';
+        });
+
+        $this->assertSame('pago', $result);
+        $this->assertSame(2, $attempts);
+    }
+
     public function test_it_wraps_exception_with_get_status_code_method(): void
     {
         $exception = new class('Forbidden', 0) extends Exception {

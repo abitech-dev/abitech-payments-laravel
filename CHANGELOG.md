@@ -6,6 +6,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Agregado
+
+- `findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult`
+  consulta el estado de un pago sin esperar el webhook, para conciliar un
+  checkout cuyo aviso no llegó. Devuelve el mismo `WebhookResult` que
+  `handleWebhook()`, o `null` si el pago no existe.
+  - Mercado Pago lee el pago por su id o, sin id, busca por
+    `external_reference` y elige el pago aprobado o el más reciente.
+
 ### Corregido
 
 - `WebhookResult::$currency` lleva el código ISO 4217 en mayúsculas en todos

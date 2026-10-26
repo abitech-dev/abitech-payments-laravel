@@ -78,18 +78,28 @@ trait HandlesMercadoPagoWebhook
         $this->throttle($this->getGatewayName() . ':webhook');
         $payment = $this->retry(fn () => (new PaymentClient())->get((int) $paymentId));
 
+        return $this->toMercadoPagoResult($type, json_decode(json_encode($payment), true));
+    }
+
+    /**
+     * El aviso y la consulta de un pago devuelven el mismo resultado.
+     *
+     * @param  array<string, mixed>  $payment
+     */
+    protected function toMercadoPagoResult(string $eventType, array $payment): WebhookResult
+    {
         return new WebhookResult(
             gateway: $this->getGatewayName(),
-            eventType: $type,
-            transactionId: (string) $payment->id,
-            status: $this->mapMercadoPagoStatus($payment->status),
-            amount: $this->fromMercadoPagoAmount($payment->transaction_amount),
-            currency: $payment->currency_id,
-            paymentMethod: $payment->payment_method_id ?? null,
-            cardBrand: $payment->card->issuer->name ?? null,
-            cardLastFour: $payment->card->last_four_digits ?? null,
-            installments: $payment->installments ?? null,
-            raw: json_decode(json_encode($payment), true)
+            eventType: $eventType,
+            transactionId: (string) $payment['id'],
+            status: $this->mapMercadoPagoStatus($payment['status']),
+            amount: $this->fromMercadoPagoAmount($payment['transaction_amount'] ?? null),
+            currency: $payment['currency_id'] ?? null,
+            paymentMethod: $payment['payment_method_id'] ?? null,
+            cardBrand: $payment['card']['issuer']['name'] ?? null,
+            cardLastFour: $payment['card']['last_four_digits'] ?? null,
+            installments: $payment['installments'] ?? null,
+            raw: $payment
         );
     }
 }

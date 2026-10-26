@@ -238,7 +238,81 @@ class MercadoPagoCheckoutDriverTest extends TestCase
             'cancelSubscription' => [static fn (MercadoPagoCheckoutDriver $driver) => $driver->cancelSubscription('pre_1'), self::preapproval()],
             'updateSubscription' => [static fn (MercadoPagoCheckoutDriver $driver) => $driver->updateSubscription('pre_1', self::subscription()), self::preapproval()],
             'getSubscription' => [static fn (MercadoPagoCheckoutDriver $driver) => $driver->getSubscription('pre_1'), self::preapproval()],
+            'findPayment' => [static fn (MercadoPagoCheckoutDriver $driver) => $driver->findPayment(externalReference: 'ref-1'), self::searchResults([self::payment(1, 'approved')])],
         ];
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function paymentStatuses(): array
+    {
+        return [
+            'approved' => ['approved', 'completed'],
+            'pending' => ['pending', 'pending'],
+            'rejected' => ['rejected', 'failed'],
+        ];
+    }
+
+    #[DataProvider('paymentStatuses')]
+    public function test_find_payment_searches_the_checkout_reference(string $gatewayStatus, string $status): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[200, self::searchResults([self::payment(7, $gatewayStatus)])]]);
+
+        $result = $this->driver()->findPayment(externalReference: 'ref-1');
+
+        $this->assertSame(
+            '/v1/payments/search?external_reference=ref-1&sort=date_created&criteria=desc',
+            $mercadoPago->requests[0]->getUri()
+        );
+        $this->assertSame($status, $result->status);
+        $this->assertSame('7', $result->transactionId);
+        $this->assertSame('50.50', $result->amount);
+        $this->assertSame('PEN', $result->currency);
+        $this->assertSame('mercadopago_checkout', $result->gateway);
+        $this->assertSame('ref-1', $result->raw['external_reference']);
+    }
+
+    public function test_find_payment_prefers_the_approved_payment_of_the_reference(): void
+    {
+        FakeMercadoPagoHttpClient::install([[200, self::searchResults([
+            self::payment(3, 'rejected', '2026-10-26T12:00:00.000-05:00'),
+            self::payment(2, 'approved', '2026-10-26T11:00:00.000-05:00'),
+            self::payment(1, 'rejected', '2026-10-26T10:00:00.000-05:00'),
+        ])]]);
+
+        $result = $this->driver()->findPayment(externalReference: 'ref-1');
+
+        $this->assertSame('2', $result->transactionId);
+        $this->assertSame('completed', $result->status);
+    }
+
+    public function test_find_payment_without_an_approved_payment_returns_the_latest(): void
+    {
+        FakeMercadoPagoHttpClient::install([[200, self::searchResults([
+            self::payment(1, 'rejected', '2026-10-26T10:00:00.000-05:00'),
+            self::payment(3, 'in_process', '2026-10-26T12:00:00.000-05:00'),
+            self::payment(2, 'rejected', '2026-10-26T11:00:00.000-05:00'),
+        ])]]);
+
+        $result = $this->driver()->findPayment(externalReference: 'ref-1');
+
+        $this->assertSame('3', $result->transactionId);
+        $this->assertSame('pending', $result->status);
+    }
+
+    public function test_find_payment_returns_null_when_the_reference_has_no_payments(): void
+    {
+        FakeMercadoPagoHttpClient::install([[200, self::searchResults([])]]);
+
+        $this->assertNull($this->driver()->findPayment(externalReference: 'ref-1'));
+    }
+
+    public function test_find_payment_returns_null_for_an_unknown_payment_id(): void
+    {
+        FakeMercadoPagoHttpClient::install([[404, ['message' => 'Payment not found', 'status' => 404]]]);
+
+        $this->assertNull($this->driver()->findPayment('999'));
     }
 
     /**
@@ -347,6 +421,34 @@ class MercadoPagoCheckoutDriverTest extends TestCase
             'status' => 'pending',
             'reason' => 'plan-mensual',
             'auto_recurring' => ['start_date' => '2026-10-15T00:00:00.000-05:00'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function payment(int $id, string $status, string $dateCreated = '2026-10-26T10:00:00.000-05:00'): array
+    {
+        return [
+            'id' => $id,
+            'status' => $status,
+            'external_reference' => 'ref-1',
+            'date_created' => $dateCreated,
+            'transaction_amount' => 50.5,
+            'currency_id' => 'PEN',
+            'payment_method_id' => 'visa',
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $payments
+     * @return array<string, mixed>
+     */
+    private static function searchResults(array $payments): array
+    {
+        return [
+            'paging' => ['total' => count($payments), 'limit' => 30, 'offset' => 0],
+            'results' => $payments,
         ];
     }
 

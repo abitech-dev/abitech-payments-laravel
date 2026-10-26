@@ -22,6 +22,8 @@ Flujo de redireccion al checkout hospedado de Mercado Pago.
 - `refund` — Reembolso total o parcial
 - `payout` — Transferencia a email usando saldo de MP (account_money)
 - `handleWebhook` — Procesa notificaciones IPN
+- `findPayment` — Consulta el pago de la preferencia por su referencia externa
+  ([Consulta de un pago](#consulta-de-un-pago))
 
 **Uso:**
 ```php
@@ -73,6 +75,8 @@ Flujo de pago transparente (formulario propio). Requiere token de tarjeta genera
 - `refund` — Reembolso total o parcial
 - `payout` — Transferencia a email usando saldo de MP (account_money)
 - `handleWebhook` — Procesa notificaciones IPN
+- `findPayment` — Consulta el pago por su id
+  ([Consulta de un pago](#consulta-de-un-pago))
 
 **Uso:**
 ```php
@@ -101,6 +105,39 @@ PEN, USD, BRL, ARS, MXN, CLP, COP
 La verificacion de firma usa los encabezados `x-signature` y `x-request-id` enviados por Mercado Pago.
 
 El secreto de verificacion se define con `MERCADOPAGO_CLIENT_SECRET`.
+
+## Consulta de un pago
+
+`findPayment(?string $transactionId = null, ?string $externalReference = null)`
+lee el estado de un pago sin esperar el aviso, para conciliar un checkout cuyo
+webhook no llegó. Devuelve el mismo `WebhookResult` que `handleWebhook()` para
+ese pago, con `eventType` `payment`, o `null` si el pago no existe.
+
+```php
+// Checkout Pro: la preferencia lleva la referencia externa del checkout.
+$result = $manager->driver('mercadopago_checkout')->findPayment(externalReference: $checkoutId);
+
+// API (Bricks): el id que devolvió purchase().
+$result = $manager->driver('mercadopago_api')->findPayment('1234567890');
+```
+
+| Dato | Consulta |
+|------|----------|
+| `transactionId` | `GET /v1/payments/{id}`; el id es numérico |
+| Solo `externalReference` | `GET /v1/payments/search` por `external_reference`, de lo más reciente a lo más antiguo |
+
+- Con id y referencia manda el id. Sin ninguno de los dos, o con un id que no es
+  numérico (el de una preferencia), lanza `PaymentGatewayException` 422 antes
+  de llamar a Mercado Pago.
+- Por referencia elige el pago aprobado y, si no hay, el más reciente por
+  `date_created`, porque un checkout puede tener varios intentos rechazados.
+  La referencia es la que `purchase()` envía cuando hay `idempotencyKey`
+  (`metadata.session_id` o la propia clave).
+- Monto en cadena decimal (`'50.50'`), moneda ISO 4217 en mayúsculas y estado
+  normalizado (`completed`, `pending`, `failed` o `refunded`), como el webhook.
+- Un 404 de Mercado Pago o una búsqueda vacía devuelven `null`. Cualquier otro
+  error lanza `PaymentGatewayException` con el código HTTP de la API, tras
+  reintentar 429 y 5xx.
 
 ## Subscriptions
 

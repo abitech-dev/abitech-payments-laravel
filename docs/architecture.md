@@ -221,6 +221,7 @@ El paquete provee varios traits reutilizables para drivers:
 | `RetriesApiCalls` | Reintenta llamadas con backoff: `$this->retry(fn() => ...)` |
 | `VerifiesWebhookSignature` | Verifica firmas HMAC de Stripe y MercadoPago |
 | `HandlesMercadoPagoWebhook` | Logica compartida de webhooks MP (solo para drivers MP) |
+| `HandlesMercadoPagoPaymentLookup` | `findPayment()` de los drivers MP, por id o por referencia externa |
 
 ---
 

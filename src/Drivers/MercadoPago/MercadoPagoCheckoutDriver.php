@@ -6,6 +6,7 @@ namespace Abitech\Payments\Drivers\MercadoPago;
 
 use Abitech\Payments\Contracts\SubscriptionInterface;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
+use Abitech\Payments\Concerns\HandlesMercadoPagoPaymentLookup;
 use Abitech\Payments\Concerns\HandlesMercadoPagoWebhook;
 use Abitech\Payments\Concerns\HandlesMercadoPagoRefund;
 use Abitech\Payments\DTO\PaymentRequest;
@@ -25,7 +26,7 @@ use MercadoPago\Client\PreApproval\PreApprovalClient;
 
 class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
-    use HandlesMercadoPagoWebhook, HandlesMercadoPagoRefund;
+    use HandlesMercadoPagoWebhook, HandlesMercadoPagoRefund, HandlesMercadoPagoPaymentLookup;
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 
