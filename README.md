@@ -20,7 +20,7 @@ Agregar el repositorio en `composer.json` de la app host:
         }
     ],
     "require": {
-        "abitech/payments-laravel": "dev-main"
+        "abitech/payments-laravel": "^2.0"
     }
 }
 ```
@@ -28,7 +28,7 @@ Agregar el repositorio en `composer.json` de la app host:
 Luego:
 
 ```bash
-composer require abitech/payments-laravel:dev-main
+composer require abitech/payments-laravel:^2.0
 ```
 
 El paquete se registra automaticamente mediante Laravel auto-discovery.
