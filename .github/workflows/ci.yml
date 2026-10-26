@@ -1,0 +1,96 @@
+# Pruebas de cada cambio.
+name: CI
+
+# Una corrida por commit.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**.md']
+  pull_request:
+    branches: [main]
+    paths-ignore: ['docs/**', '**.md']
+  # Para quien lo reutilice.
+  workflow_call:
+
+# Cancela la corrida vieja.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Solo lectura.
+permissions:
+  contents: read
+
+env:
+  PHP_EXTENSIONS: bcmath, pdo_sqlite, sqlite3
+
+jobs:
+  # 1. Seguridad; si falla, se detiene.
+  security:
+    name: Seguridad (secretos, composer.json y dependencias)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Historial completo.
+      - name: Bajar el código con su historial
+        uses: actions/checkout@v5.0.0
+        with:
+          fetch-depth: 0
+      # Excepciones en .gitleaks.toml.
+      - name: Buscar secretos
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
+          ./gitleaks git --redact --no-banner
+      - name: Preparar PHP
+        uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: '8.3'
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+      - name: Validar composer.json
+        run: composer validate --strict --no-check-lock
+      # El paquete no versiona el lock.
+      - name: Resolver dependencias
+        run: composer update --no-install --no-interaction --no-progress
+      # Alto o crítico falla.
+      - name: Auditar paquetes de PHP
+        run: composer audit --locked
+
+  # 2. Pruebas por versión soportada.
+  backend-tests:
+    name: Backend pruebas (PHP ${{ matrix.php }} con Laravel ${{ matrix.laravel }}, ${{ matrix.stability }})
+    needs: security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Piso de cada rango.
+          - { php: '8.2', laravel: '12.*', testbench: '10.*', stability: prefer-lowest }
+          - { php: '8.3', laravel: '12.*', testbench: '10.*', stability: prefer-stable }
+          # Laravel 13 exige PHP 8.3.
+          - { php: '8.3', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
+          - { php: '8.5', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
+    steps:
+      - name: Bajar el código
+        uses: actions/checkout@v5.0.0
+      - name: Preparar PHP
+        uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+      # Sin lock, según composer.json.
+      - name: Recuperar la caché de Composer
+        uses: actions/cache@v5.0.5
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ matrix.php }}-${{ matrix.laravel }}-
+      - name: Instalar dependencias
+        run: |
+          composer require --dev "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-update --no-interaction
+          composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
+      - name: Correr las pruebas
+        run: composer test

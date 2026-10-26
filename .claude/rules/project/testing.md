@@ -28,7 +28,7 @@ paquete sin app host; los comandos están en `CLAUDE.md` §2.
 1. **PHPUnit sobre Testbench.** `composer.json` admite PHPUnit
    `^11.5.50|^12.5.8|^13.0` y Testbench `^10|^11` (Laravel 12 y 13); el
    lock local trae 11 y 10, y
-   `.github/workflows/tests.yml` prueba el piso y el techo de los rangos. Toda
+   `.github/workflows/ci.yml` prueba el piso y el techo de los rangos. Toda
    prueba extiende `Abitech\Payments\Tests\TestCase`, que registra
    `PaymentsServiceProvider`. Métodos `test_<comportamiento>` en inglés,
    por la excepción de idioma del `CLAUDE.md`.
@@ -51,5 +51,5 @@ paquete sin app host; los comandos están en `CLAUDE.md` §2.
    - Bien: `try { ...; } catch (PaymentGatewayException) {}` y después
      `assertSame(3, $n)`.
 6. **Sin herramienta.** Se declaran como no cubiertos al entregar el
-   formato (Pint), el análisis estático (PHPStan), la mutación y el SCA
-   en CI; `composer audit` se corre en local.
+   formato (Pint), el análisis estático (PHPStan) y la mutación. La CI
+   corre gitleaks y `composer audit`.

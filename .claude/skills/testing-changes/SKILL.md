@@ -30,7 +30,9 @@ lo prueba. Se corrige la prueba antes de seguir.
 
 1. Aplicación sirviendo en la URL de pruebas del proyecto.
 2. Crear o ampliar el script de la pantalla y ejecutarlo hasta verde.
-3. Si cambió el diseño, capturas a ~390 px y ≥ 1280 px; revisarlas.
+3. Si cambió el diseño, capturas a ~390 px y ≥ 1280 px; revisarlas. Si
+   la pantalla tiene referencia visual, se rehace con `--update-snapshots`
+   y se mira cada imagen nueva antes del commit.
 4. Datos restaurados; capturas y scripts de depuración borrados.
 
 **8. Informe al entregar.**

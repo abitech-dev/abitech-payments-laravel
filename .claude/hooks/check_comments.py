@@ -160,9 +160,11 @@ def motivo_de_linea(linea: str, texto: str, siguiente: str, marcas: list[str], f
     return None
 
 
-def buscar_bloques(lineas: list[str], nuevas: set[int]) -> list[tuple[int, str]]:
+def buscar_bloques(lineas: list[str], nuevas: set[int], marcas: list[str]) -> list[tuple[int, str]]:
     """Bloques largos de comentarios de línea o DocBlocks que tocan una línea nueva."""
     avisos, inicio, cuenta, en_docblock, marca_actual = [], None, 0, False, None
+    # Solo las del lenguaje, porque en `.html` y `.vue` `--` es variable CSS.
+    de_linea = [m for m in ("//", "--", "#") if m in marcas]
 
     def cerrar(desde: int | None, hasta: int, motivo: str) -> None:
         if desde is not None and any(n in nuevas for n in range(desde, hasta + 1)):
@@ -181,7 +183,7 @@ def buscar_bloques(lineas: list[str], nuevas: set[int]) -> list[tuple[int, str]]
             elif not re.match(r"^\*\s*@", limpia) and limpia.strip("* "):
                 cuenta += 1
             continue
-        marca = next((m for m in ("//", "--", "#") if limpia.startswith(m)
+        marca = next((m for m in de_linea if limpia.startswith(m)
                       and not limpia.startswith(("#!", "#["))), None)
         if marca and marca == (marca_actual or marca):
             inicio, cuenta, marca_actual = inicio or n, cuenta + 1, marca
@@ -254,7 +256,7 @@ def main() -> int:
         motivo = motivo_de_linea(linea, texto, siguiente, marcas, frases)
         if motivo:
             avisos.append((n, motivo))
-    avisos += buscar_bloques(lineas, nuevas)
+    avisos += buscar_bloques(lineas, nuevas, marcas)
     if archivo.suffix.lower() == ".php":
         avisos += tipos_repetidos(lineas, nuevas)
     if not avisos:

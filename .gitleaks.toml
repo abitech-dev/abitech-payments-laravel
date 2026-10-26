@@ -1,0 +1,16 @@
+# Reglas de gitleaks por defecto, más los datos falsos de pruebas y docs.
+# Un secreto real se revoca; nunca se agrega aquí.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Clave de idempotencia de mentira en la prueba del middleware"
+condition = "AND"
+paths = ['''^tests/Feature/Http/Middleware/EnforceIdempotencyKeyTest\.php$''']
+regexes = ['''^clave-de-prueba-\d+$''']
+
+[[allowlists]]
+description = "Clave de idempotencia de ejemplo en la guía de integración"
+condition = "AND"
+paths = ['''^docs/host-integration\.md$''']
+regexes = ['''^test-key-\d+$''']
