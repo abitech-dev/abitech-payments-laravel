@@ -22,6 +22,7 @@ Driver Concreto (StripeCheckoutDriver, MercadoPagoApiDriver, ...)
     │  refund()    → bool
     │  payout()    → PayoutResponse
     │  handleWebhook() → WebhookResult
+    │  findPayment()   → ?WebhookResult
     │  health()    → bool
     ▼
 API HTTP de la pasarela (Stripe API, MercadoPago API)
@@ -161,6 +162,30 @@ class NuevaPasarelaCheckoutDriver extends AbstractPaymentDriver
             amount: '100.00',
             currency: 'USD',
             raw: $request->all()
+        );
+    }
+
+    public function findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult
+    {
+        if (blank($transactionId)) {
+            throw new PaymentGatewayException("Se requiere el id del pago.", 422);
+        }
+
+        $this->authenticate();
+        $this->throttle('nuevapasarela_checkout:find_payment');
+
+        // findWithRetry() devuelve null si la pasarela responde 404
+        $payment = $this->findWithRetry(function () use ($transactionId) {
+            // Consulta del pago en la API de la pasarela
+            return ['id' => $transactionId, 'status' => 'approved'];
+        });
+
+        return $payment === null ? null : new WebhookResult(
+            gateway: 'nuevapasarela',
+            eventType: 'payment',
+            transactionId: $payment['id'],
+            status: 'completed',
+            raw: $payment
         );
     }
 }

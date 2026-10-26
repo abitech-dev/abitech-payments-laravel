@@ -43,6 +43,14 @@ interface PaymentGatewayInterface
     public function handleWebhook(Request $request): WebhookResult;
 
     /**
+     * Consultar el estado de un pago, como lo daría su webhook, por su id o
+     * por la referencia externa del checkout; `null` si no existe.
+     *
+     * @throws \Abitech\Payments\Exceptions\PaymentGatewayException
+     */
+    public function findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult;
+
+    /**
      * Verificar conectividad con la pasarela (health check).
      *
      * @throws \Abitech\Payments\Exceptions\PaymentGatewayException

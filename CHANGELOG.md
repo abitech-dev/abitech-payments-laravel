@@ -17,6 +17,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
   - Stripe Checkout lee la sesión `cs_…` con `payment_intent.latest_charge`
     expandido y Stripe PaymentIntents lee el PaymentIntent; los dos exigen el
     id y responden 422 sin él.
+  - `FakePaymentDriver` devuelve un pago completado y simula uno inexistente
+    con `shouldReturn('findPayment', null)`.
+- `PaymentGatewayInterface` declara `findPayment()`. Un driver propio que
+  implemente la interfaz fuera del paquete debe agregarla; hasta producción
+  un cambio del contrato sube solo la versión menor.
 
 ### Corregido
 

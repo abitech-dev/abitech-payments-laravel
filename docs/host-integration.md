@@ -174,6 +174,28 @@ Ruta del webhook (sin middleware de idempotencia):
 Route::post('/webhooks/{gateway}', [WebhookController::class, '__invoke']);
 ```
 
+### Conciliar un pago cuyo webhook no llegó
+
+`findPayment()` devuelve el mismo `WebhookResult` que `handleWebhook()`, así
+que el host aplica la misma lógica a un checkout que sigue pendiente pasado su
+plazo. Devuelve `null` si el pago no existe todavía.
+
+```php
+// Tarea programada de la Host App
+$result = $gateway === 'mercadopago'
+    ? $manager->driver('mercadopago_checkout')->findPayment(externalReference: $checkout->id)
+    : $manager->driver('stripe_checkout')->findPayment($checkout->gateway_transaction_id);
+
+if ($result !== null && $result->status !== 'pending') {
+    // Misma actualización de factura y mismos eventos que en el webhook
+}
+```
+
+Mercado Pago Checkout no conoce el id del pago hasta el aviso, así que se
+consulta por la referencia externa de la preferencia; Stripe exige el id de la
+sesión (`cs_…`). Detalle por pasarela en [Mercado Pago](mercadopago.md#consulta-de-un-pago)
+y [Stripe](stripe.md#consulta-de-un-pago).
+
 ## 7. Multi-tenant
 
 ```php

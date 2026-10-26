@@ -202,6 +202,29 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
         ));
     }
 
+    public function findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult
+    {
+        if (blank($transactionId) && blank($externalReference)) {
+            throw new PaymentGatewayException(
+                "Se requiere el id del pago o la referencia externa para consultarlo.",
+                422
+            );
+        }
+
+        $this->recordCall('findPayment', [$transactionId, $externalReference]);
+        $this->guardThrow();
+
+        return $this->getResponse('findPayment', new WebhookResult(
+            gateway: 'fake',
+            eventType: 'payment',
+            transactionId: $transactionId ?? 'fake_txn_lookup',
+            status: 'completed',
+            amount: '100.00',
+            currency: 'USD',
+            raw: ['external_reference' => $externalReference]
+        ));
+    }
+
     // ─── SubscriptionInterface ───────────────────────────────────────────
 
     public function createSubscription(SubscriptionRequest $request): SubscriptionResponse
@@ -270,9 +293,13 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
         }
     }
 
+    /**
+     * Una respuesta configurada como `null`, como un pago que no existe, se
+     * devuelve tal cual.
+     */
     protected function getResponse(string $method, mixed $default): mixed
     {
-        return $this->responses[$method] ?? $default;
+        return array_key_exists($method, $this->responses) ? $this->responses[$method] : $default;
     }
 
     protected function recordCall(string $method, array $args): void

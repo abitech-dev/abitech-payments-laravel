@@ -221,4 +221,53 @@ class FakePaymentDriverTest extends TestCase
         $this->assertSame('completed', $result->status);
         $this->assertSame('100.00', $result->amount);
     }
+
+    public function test_find_payment_returns_a_completed_payment_by_default(): void
+    {
+        $result = $this->fake->findPayment('txn-1');
+
+        $this->assertSame('completed', $result->status);
+        $this->assertSame('txn-1', $result->transactionId);
+        $this->assertSame('100.00', $result->amount);
+    }
+
+    public function test_find_payment_records_the_id_and_the_reference(): void
+    {
+        $this->fake->findPayment(externalReference: 'ref-1');
+
+        $this->fake->assertCalled('findPayment', fn (?string $id, ?string $reference) => $id === null && $reference === 'ref-1');
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_find_payment_can_report_a_missing_payment(): void
+    {
+        $this->fake->shouldReturn('findPayment', null);
+
+        $this->assertNull($this->fake->findPayment('txn-1'));
+    }
+
+    public function test_find_payment_without_id_or_reference_is_rejected(): void
+    {
+        try {
+            $this->fake->findPayment();
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(422, $exception->getCode());
+        }
+
+        $this->fake->assertNotCalled('findPayment');
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_find_payment_can_simulate_a_gateway_error(): void
+    {
+        $this->fake->shouldThrowException('Servicio no disponible', 503);
+
+        try {
+            $this->fake->findPayment('txn-1');
+            $this->fail('Se esperaba PaymentGatewayException.');
+        } catch (PaymentGatewayException $exception) {
+            $this->assertSame(503, $exception->getCode());
+        }
+    }
 }
