@@ -14,6 +14,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
   `handleWebhook()`, o `null` si el pago no existe.
   - Mercado Pago lee el pago por su id o, sin id, busca por
     `external_reference` y elige el pago aprobado o el más reciente.
+  - Stripe Checkout lee la sesión `cs_…` con `payment_intent.latest_charge`
+    expandido y Stripe PaymentIntents lee el PaymentIntent; los dos exigen el
+    id y responden 422 sin él.
 
 ### Corregido
 

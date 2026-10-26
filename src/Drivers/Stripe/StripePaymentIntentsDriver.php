@@ -6,6 +6,7 @@ namespace Abitech\Payments\Drivers\Stripe;
 
 use Illuminate\Http\Request;
 use Abitech\Payments\Concerns\ConvertsStripeAmounts;
+use Abitech\Payments\Concerns\ReadsStripeCards;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\VerifiesWebhookSignature;
 use Abitech\Payments\DTO\PaymentRequest;
@@ -18,7 +19,7 @@ use Stripe\StripeClient;
 
 class StripePaymentIntentsDriver extends AbstractPaymentDriver
 {
-    use ConvertsStripeAmounts, VerifiesWebhookSignature;
+    use ConvertsStripeAmounts, ReadsStripeCards, VerifiesWebhookSignature;
 
     protected array $supportedCurrencies = [
         'USD', 'EUR', 'GBP', 'PEN', 'MXN', 'BRL', 'ARS', 'CLP', 'COP',
@@ -210,6 +211,49 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
             cardLastFour: $card['last_four'] ?? null,
             installments: null,
             raw: $event
+        );
+    }
+
+    /**
+     * Consulta el PaymentIntent (`pi_…`) con su último cargo.
+     */
+    public function findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult
+    {
+        if (blank($transactionId)) {
+            throw new PaymentGatewayException(
+                "Stripe consulta el pago por el id del PaymentIntent (pi_…); la referencia externa no basta.",
+                422
+            );
+        }
+
+        $this->authenticate();
+        $this->throttle('stripe_paymentintents:find_payment');
+
+        $intent = $this->findWithRetry(fn () => $this->client->paymentIntents->retrieve(
+            $transactionId,
+            ['expand' => ['latest_charge']]
+        ));
+
+        if ($intent === null) {
+            return null;
+        }
+
+        $intent = $intent->toArray();
+        $card = $this->cardFromStripeCharge($intent['latest_charge'] ?? null);
+
+        return new WebhookResult(
+            gateway: 'stripe',
+            eventType: 'payment_intent',
+            transactionId: $intent['id'],
+            status: ($intent['latest_charge']['refunded'] ?? false) === true
+                ? 'refunded'
+                : $this->mapStatus($intent['status'] ?? 'pending'),
+            amount: $this->fromStripeAmount($intent['amount'] ?? null, $intent['currency'] ?? null),
+            currency: $intent['currency'] ?? null,
+            paymentMethod: $card['payment_method'] ?? null,
+            cardBrand: $card['brand'] ?? null,
+            cardLastFour: $card['last_four'] ?? null,
+            raw: $intent
         );
     }
 

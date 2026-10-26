@@ -21,6 +21,8 @@ Flujo de redireccion al checkout hospedado de Stripe.
 - `refund` — Reembolso total o parcial
 - `payout` — Transferencia a cuenta conectada (Stripe Connect)
 - `handleWebhook` — Procesa webhooks con verificacion de firma
+- `findPayment` — Consulta la sesión de Checkout por su id
+  ([Consulta de un pago](#consulta-de-un-pago))
 
 **Uso:**
 ```php
@@ -53,6 +55,8 @@ Flujo de pago directo con Stripe Elements (formulario propio). Requiere un Payme
 - `refund` — Reembolso total o parcial
 - `payout` — Transferencia a cuenta conectada (Stripe Connect)
 - `handleWebhook` — Procesa webhooks con verificacion de firma
+- `findPayment` — Consulta el PaymentIntent por su id
+  ([Consulta de un pago](#consulta-de-un-pago))
 
 **Uso:**
 ```php
@@ -79,6 +83,49 @@ USD, EUR, GBP, PEN, MXN, BRL, ARS, CLP, COP, CAD, AUD, NZD, CHF, HKD, SGD, JPY, 
 La verificacion de firma usa el encabezado `Stripe-Signature` y el secreto `STRIPE_WEBHOOK_SECRET`.
 
 Eventos procesados: `checkout.session.completed`, `payment_intent.*`, `charge.refunded`.
+
+`WebhookResult::$currency` llega en ISO 4217 en mayúsculas (`'PEN'`), aunque
+Stripe la envíe en minúsculas.
+
+## Consulta de un pago
+
+`findPayment(?string $transactionId = null, ?string $externalReference = null)`
+lee el estado de un pago sin esperar el webhook, para conciliar un pago cuyo
+aviso no llegó. Stripe lo consulta por el id que devolvió `purchase()`; la
+referencia externa no basta y, sin id, lanza `PaymentGatewayException` 422
+antes de llamar a Stripe.
+
+```php
+$result = $manager->driver('stripe_checkout')->findPayment('cs_test_a1b2');
+$result = $manager->driver('stripe_paymentintents')->findPayment('pi_3Nx');
+```
+
+| Driver | Consulta | `eventType` |
+|--------|----------|-------------|
+| `stripe_checkout` | `GET /v1/checkout/sessions/{id}` con `payment_intent.latest_charge` expandido | `checkout.session` |
+| `stripe_paymentintents` | `GET /v1/payment_intents/{id}` con `latest_charge` expandido | `payment_intent` |
+
+Estado de la sesión de Checkout:
+
+| Sesión | Estado |
+|--------|--------|
+| Cargo reembolsado por completo | `refunded` |
+| `payment_status` `paid` o `no_payment_required` | `completed` |
+| `status` `expired` | `failed` |
+| `status` `complete` sin pagar, con el PaymentIntent en `processing` | `pending` (cobro asíncrono en curso) |
+| `status` `complete` sin pagar, en otro estado | `failed` (cobro asíncrono fallido) |
+| `status` `open` | `pending` |
+
+El PaymentIntent sigue el mapeo del webhook (`succeeded` → `completed`,
+`canceled` → `failed`, el resto `pending`) y da `refunded` si su último cargo
+está reembolsado por completo.
+
+- Devuelve el mismo `WebhookResult` que el webhook, con `gateway` `stripe`,
+  monto en cadena decimal (`'19.99'`), moneda en mayúsculas, la tarjeta del
+  cargo expandido y el objeto de Stripe en `raw`.
+- Un 404 (`resource_missing`) devuelve `null`. Cualquier otro error lanza
+  `PaymentGatewayException` con el código HTTP de Stripe, tras reintentar 429
+  y 5xx.
 
 ## Subscriptions
 

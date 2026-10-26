@@ -48,8 +48,8 @@ concreción de `tech/laravel-package.md`.
    pasarela comparten clave (`mercadopago`, `stripe`).
 4. **Lógica compartida en `src/Concerns/`.** `RateLimitsApiCalls`,
    `RetriesApiCalls`, `VerifiesWebhookSignature`, `ValidatesAmounts`,
-   `ConvertsStripeAmounts`, `ConvertsMercadoPagoAmounts` y los
-   `HandlesMercadoPago*`. Un segundo driver que repite un bloque lo
+   `ConvertsStripeAmounts`, `ConvertsMercadoPagoAmounts`,
+   `ReadsStripeCards` y los `HandlesMercadoPago*`. Un segundo driver que repite un bloque lo
    mueve a un trait; con un solo consumidor se queda en el driver
    (`core/07`).
 5. **SDK opcionales.** `mercadopago/dx-php` y `stripe/stripe-php` van en
