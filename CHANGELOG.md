@@ -6,6 +6,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+## [2.1.0] - 2026-10-26
+
 ### Agregado
 
 - `findPayment(?string $transactionId = null, ?string $externalReference = null): ?WebhookResult`
@@ -155,6 +157,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Eliminado `minimum-stability: dev` de composer.json
 - Corregidas restricciones de version de PHP/illuminate
 
+[2.1.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.1.0
 [2.0.2]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.2
 [2.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.0
 [1.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v1.0.0
