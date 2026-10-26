@@ -95,7 +95,8 @@ class BillingController extends Controller
 Los montos son cadenas decimales en unidad mayor (`'19.99'`), nunca `float`,
 en los DTO, en `refund()` y en `WebhookResult::$amount`. Un monto con otro
 formato, o con más decimales de los que admite la moneda en Stripe, lanza
-`PaymentGatewayException` 422.
+`PaymentGatewayException` 422. `WebhookResult::$currency` es el código ISO 4217
+en mayúsculas (`'PEN'`) en todas las pasarelas.
 
 ## Webhooks
 

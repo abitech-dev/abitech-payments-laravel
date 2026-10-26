@@ -6,6 +6,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Corregido
+
+- `WebhookResult::$currency` lleva el código ISO 4217 en mayúsculas en todos
+  los drivers; los webhooks de Stripe lo devolvían en minúsculas (`pen`). Una
+  app que lo pasaba a mayúsculas por su cuenta ya no necesita hacerlo.
+
 ## [2.0.2] - 2026-10-17
 
 ### Corregido

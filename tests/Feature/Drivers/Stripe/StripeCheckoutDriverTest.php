@@ -273,6 +273,19 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame('ignored', $result->status);
     }
 
+    public function test_the_webhook_currency_is_an_uppercase_iso_4217_code(): void
+    {
+        FakeStripeHttpClient::install([]);
+        $request = StripeWebhookRequest::signed('checkout.session.completed', [
+            'id' => 'cs_1',
+            'object' => 'checkout.session',
+            'amount_total' => 1999,
+            'currency' => 'pen',
+        ], self::WEBHOOK_SECRET);
+
+        $this->assertSame('PEN', $this->driver()->handleWebhook($request)->currency);
+    }
+
     /**
      * @return array<string, array{0: Closure(StripeCheckoutDriver): mixed, 1: list<array<string, mixed>>}>
      */
