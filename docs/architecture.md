@@ -247,7 +247,11 @@ El paquete provee varios traits reutilizables para drivers:
 | `VerifiesWebhookSignature` | Verifica firmas HMAC de Stripe y MercadoPago |
 | `HandlesMercadoPagoWebhook` | Logica compartida de webhooks MP (solo para drivers MP) |
 | `HandlesMercadoPagoPaymentLookup` | `findPayment()` de los drivers MP, por id o por referencia externa |
+| `HandlesMercadoPagoRefund` | Reembolso total o parcial de un pago MP |
 | `ReadsStripeCards` | Marca y últimos dígitos de un cargo de Stripe expandido |
+| `ValidatesAmounts` | Exige el monto como cadena decimal en unidad mayor (`'19.99'`) |
+| `ConvertsStripeAmounts` | Pasa el monto a la unidad menor de Stripe y de vuelta, con las monedas sin decimales tal cual |
+| `ConvertsMercadoPagoAmounts` | Pasa el monto al número en unidad mayor que espera MP y de vuelta |
 
 ---
 
@@ -256,7 +260,7 @@ El paquete provee varios traits reutilizables para drivers:
 ```
 src/
 ├── Concerns/         # Traits reutilizables
-├── Contracts/        # Interfaces (PaymentGatewayInterface, SubscriptionInterface, ConfigResolverInterface)
+├── Contracts/        # Interfaces (PaymentGatewayInterface, SubscriptionInterface, WebhookHandlerInterface, ConfigResolverInterface)
 ├── Drivers/
 │   ├── AbstractPaymentDriver.php
 │   ├── MercadoPago/

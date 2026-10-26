@@ -69,5 +69,6 @@ concreción de `tech/laravel-package.md`.
    - `credentials` es `text`, no `json`, porque el host la guarda con el
      cast `encrypted:json`.
 8. **Contrato v1** (ADR 0005). Hasta producción, quitar o cambiar API
-   pública sube la menor, sin alias ni mayor nueva. Es la excepción de
-   `tech/laravel-package.md` regla 7, por el motivo del ADR.
+   pública no deja alias ni capa de compatibilidad. La versión sube la
+   mayor según `tech/laravel-package.md` regla 7, como en 2.0.0, y
+   account sube su restricción en el mismo trabajo.

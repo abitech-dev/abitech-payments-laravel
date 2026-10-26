@@ -8,10 +8,9 @@ a la API de cada pasarela y devuelve DTO normalizados; la app host
 persiste, deduplica y decide.
 
 - Genérico de Abitech y reutilizable fuera de Arsy. Hoy lo instala solo
-  `arsy-account-app`, como `dev-main` desde el repositorio VCS.
+  `arsy-account-app`, con `^2.0` desde el repositorio VCS.
 - Tareas en `../../arsy-architecture/tareas/payments-laravel.md` (PL-01
-  a PL-07, versión 1.1, y deuda DT-01 a DT-16), con sus diseños en
-  `disenos/`.
+  a PL-07 y deuda DT-01 a DT-19), con sus diseños en `disenos/`.
 - Contrato v1 sin capas de compatibilidad hasta producción (ADR 0005),
   aplicado en `project/architecture.md` regla 8.
 - Idioma (excepción de `core/04` regla 3). Clases, métodos, variables,
@@ -60,13 +59,10 @@ Formato, análisis estático y mutación se declaran no cubiertos
    PHPUnit falla con `Cannot open bootstrap script` y la distribución
    Ubuntu de WSL no trae PHP. Se corre con PHP 8.2 o superior y el
    paquete en un disco local.
-2. **Un push a `main` es una publicación.** Account requiere
-   `dev-main`, así que su próximo `composer update` toma lo que haya en
-   `main` aunque no exista tag.
-3. **`composer.lock` y `vendor/` no se versionan.** El lock local solo
+2. **`composer.lock` y `vendor/` no se versionan.** El lock local solo
    sirve para probar; cada app host resuelve sus versiones dentro de los
    rangos de `composer.json`.
-4. **Los SDK de pasarela no vienen con el paquete.** Están en `suggest`
+3. **Los SDK de pasarela no vienen con el paquete.** Están en `suggest`
    y `require-dev`, así que la suite los tiene y una app host puede no
    tenerlos (`project/architecture.md` regla 5).
 
@@ -77,9 +73,10 @@ Dónde va cada pieza, `core/06`; cómo se escribe, `core/08`. Proyecto en
 equipo, y su versión vive en el repositorio privado `abitech-dev/_claude`,
 con el `stack` declarado en su `claude-sync.json`.
 
-- `rules/core/`, `rules/tech/{testing,documentation}.md`, `agents/`,
-  `hooks/*.py` y las skills son copia de la base global. Se editan en
-  `~/.claude` y llegan con `sync.py guardar global` y luego
+- `rules/core/`,
+  `rules/tech/{testing,documentation,continuous-integration}.md`,
+  `agents/`, `hooks/*.py` y las skills son copia de la base global. Se
+  editan en `~/.claude` y llegan con `sync.py guardar global` y luego
   `sync.py restaurar abitech-payments-laravel`.
 - Las demás de `rules/tech/` vienen de la biblioteca `stacks/`;
   `tech/laravel-package.md` es idéntica en `arsy-sso-client`. Se editan aquí
@@ -88,16 +85,13 @@ con el `stack` declarado en su `claude-sync.json`.
   `rule-cases.json`.
 - Una buena práctica que convenga fijar se propone como cambio en su
   regla; nunca se aplica en silencio.
-- `.agents/` guarda reglas de otra herramienta y Claude Code no las
-  carga; ante una diferencia mandan `.claude/rules/` y, en commits,
-  `core/03`.
 
 ## 6. Despliegue
 
 - Un paquete no se despliega; se publica según
   `tech/laravel-package.md` regla 7. El push pide confirmación
   (`settings.json`).
-- Account fija el commit en su `composer.lock`. Subir esa versión es un
+- Account fija el tag en su `composer.lock`. Subir esa versión es un
   cambio de account, con su suite (`../../arsy-account-app/CLAUDE.md`
   §2 y §3).
 

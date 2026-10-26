@@ -20,7 +20,7 @@ Agregar el repositorio VCS en `composer.json` de la app host:
 Luego:
 
 ```bash
-composer require abitech/payments-laravel:dev-main
+composer require abitech/payments-laravel:^2.0
 
 # Publicar archivos
 php artisan vendor:publish --tag=abitech-payments-config
