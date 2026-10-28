@@ -434,7 +434,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             $params = [];
 
             if ($reason) {
-                $params['cancellation_reason'] = $reason;
+                $params['cancellation_details'] = ['comment' => $reason];
             }
 
             $subscription = $this->client->subscriptions->cancel($subscriptionId, $params);
