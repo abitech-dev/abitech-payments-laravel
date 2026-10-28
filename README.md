@@ -6,6 +6,8 @@ Motor de pasarelas de pago para aplicaciones Laravel. Implementa el patron Strat
 
 - PHP ^8.2 con la extensión `bcmath`; Laravel 13 exige PHP 8.3
 - Laravel ^12.69 | ^13.30
+- `stripe/stripe-php` de la 17 a la 22 para los drivers de Stripe
+  ([SDK](docs/stripe.md#sdk))
 
 ## Instalacion
 
@@ -20,7 +22,7 @@ Agregar el repositorio en `composer.json` de la app host:
         }
     ],
     "require": {
-        "abitech/payments-laravel": "^2.0"
+        "abitech/payments-laravel": "^3.0"
     }
 }
 ```
@@ -28,7 +30,7 @@ Agregar el repositorio en `composer.json` de la app host:
 Luego:
 
 ```bash
-composer require abitech/payments-laravel:^2.0
+composer require abitech/payments-laravel:^3.0
 ```
 
 El paquete se registra automaticamente mediante Laravel auto-discovery.

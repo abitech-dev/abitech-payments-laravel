@@ -176,4 +176,7 @@ stripe listen --forward-to localhost:8000/api/webhooks/stripe
 
 ## SDK
 
+El paquete admite `stripe/stripe-php` de la 17 a la 22 y declara `conflict`
+con `<17.0`. El CI prueba la 17.0 en `--prefer-lowest` y la 22 en el resto.
+
 Documentacion oficial del SDK: https://github.com/stripe/stripe-php

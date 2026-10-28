@@ -40,7 +40,7 @@ class FakeStripeHttpClient implements ClientInterface
         ApiRequestor::setHttpClient(null);
     }
 
-    public function request($method, $absUrl, $headers, $params, $hasFile)
+    public function request($method, $absUrl, $headers, $params, $hasFile, $apiMode = 'v1', $maxNetworkRetries = null)
     {
         $this->requests[] = ['method' => $method, 'url' => $absUrl, 'headers' => $headers, 'params' => $params];
 

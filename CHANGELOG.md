@@ -16,6 +16,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
   `metadata['payment_method_types']` ya no tiene efecto y `paymentMethodSchema()`
   de `stripe_checkout` y `stripe_paymentintents` devuelve `[]`, así que el panel
   del host deja de mostrar «Métodos habilitados».
+- **Incompatible.** Los drivers de Stripe piden `stripe/stripe-php` de la 17 a
+  la 22 y el paquete declara `conflict` con `<17.0`. El CI prueba la 17.0 en
+  `--prefer-lowest` y la 22 en el resto.
 
 ### Corregido
 
