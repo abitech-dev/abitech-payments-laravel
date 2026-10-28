@@ -140,6 +140,9 @@ $response = $manager->driver('stripe_checkout')->createSubscription(new Subscrip
 ));
 ```
 
+`nextBillingDate` sale del `current_period_end` del primer ítem de la
+suscripción, donde lo deja la API `2025-03-31.basil` desde stripe-php 17.
+
 ### Configurar endpoint en Stripe Dashboard
 
 1. Ir a https://dashboard.stripe.com/webhooks

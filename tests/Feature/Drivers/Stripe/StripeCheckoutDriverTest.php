@@ -530,7 +530,15 @@ class StripeCheckoutDriverTest extends TestCase
      */
     private static function subscriptionObject(): array
     {
-        return ['id' => 'sub_1', 'object' => 'subscription', 'status' => 'active', 'current_period_end' => 1767225600];
+        return [
+            'id' => 'sub_1',
+            'object' => 'subscription',
+            'status' => 'active',
+            'items' => [
+                'object' => 'list',
+                'data' => [['id' => 'si_1', 'object' => 'subscription_item', 'current_period_end' => 1767225600]],
+            ],
+        ];
     }
 
     private function driver(): StripeCheckoutDriver

@@ -20,6 +20,7 @@ use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Illuminate\Support\Carbon;
 use Stripe\StripeClient;
+use Stripe\Subscription;
 
 class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
@@ -432,7 +433,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
                 planId: $request->planId,
-                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
+                nextBillingDate: $this->nextBillingDateOf($subscription),
                 raw: $subscription->toArray()
             );
         });
@@ -477,7 +478,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
                 planId: $request->planId,
-                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
+                nextBillingDate: $this->nextBillingDateOf($subscription),
                 raw: $subscription->toArray()
             );
         });
@@ -495,10 +496,20 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 success: true,
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
-                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
+                nextBillingDate: $this->nextBillingDateOf($subscription),
                 raw: $subscription->toArray()
             );
         });
+    }
+
+    /**
+     * Desde la API `2025-03-31.basil` el fin del período vive en cada ítem.
+     */
+    protected function nextBillingDateOf(Subscription $subscription): ?string
+    {
+        $periodEnd = $subscription->items->data[0]->current_period_end ?? null;
+
+        return $periodEnd === null ? null : Carbon::createFromTimestamp($periodEnd)->toIso8601String();
     }
 
     /**

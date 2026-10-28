@@ -6,6 +6,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Corregido
+
+- Las suscripciones de Stripe leen `nextBillingDate` del `current_period_end`
+  del primer ítem; la API `2025-03-31.basil` de stripe-php 17 lo quitó de la
+  suscripción y `createSubscription()`, `updateSubscription()` y
+  `getSubscription()` fallaban con `TypeError`.
+
 ## [2.1.0] - 2026-10-26
 
 ### Agregado
