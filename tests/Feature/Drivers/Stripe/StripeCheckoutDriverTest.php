@@ -259,6 +259,16 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame('canceled', $response->status);
         $this->assertNotNull($response->canceledAt);
         $this->assertSame('delete', $stripe->requests[0]['method']);
+        $this->assertSame([], $stripe->requests[0]['params']);
+    }
+
+    public function test_cancel_subscription_sends_the_reason_as_a_cancellation_comment(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 'sub_1', 'object' => 'subscription', 'status' => 'canceled']]]);
+
+        $this->driver()->cancelSubscription('sub_1', 'Cambio de plan');
+
+        $this->assertSame(['cancellation_details' => ['comment' => 'Cambio de plan']], $stripe->requests[0]['params']);
     }
 
     public function test_get_subscription_reads_the_next_billing_date(): void

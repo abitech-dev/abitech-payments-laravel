@@ -6,6 +6,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Corregido
+
+- `cancelSubscription()` de Stripe envía el motivo en
+  `cancellation_details[comment]`. La API no admite `cancellation_reason` y
+  respondía 400 a toda baja con motivo.
+
 ## [3.0.0] - 2026-10-27
 
 ### Cambiado
