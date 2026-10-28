@@ -34,9 +34,6 @@ $response = $manager->driver('stripe_checkout')->purchase(new PaymentRequest(
     idempotencyKey: 'uuid-unico',
     successUrl: 'https://miapp.com/gracias?session_id={CHECKOUT_SESSION_ID}',
     cancelUrl: 'https://miapp.com/carrito',
-    metadata: [
-        'payment_method_types' => ['card', 'ideal', 'bancontact'],
-    ],
 ));
 
 redirect($response->redirectUrl);
@@ -69,10 +66,32 @@ $response = $manager->driver('stripe_paymentintents')->purchase(new PaymentReque
     idempotencyKey: request()->header('X-Idempotency-Key'),
     metadata: [
         'order_id' => '12345',
-        'payment_method_types' => ['card'],
     ],
 ));
 ```
+
+## Métodos de pago
+
+Los drivers no eligen los métodos de pago: se activan en el panel de Stripe
+(**Settings → Payment methods**), como pide Stripe con los
+[métodos de pago dinámicos](https://docs.stripe.com/payments/payment-methods/dynamic-payment-methods).
+Desde la API `2026-09-30.endive`, que fija stripe-php 22, Stripe rechaza
+`payment_method_types` con 400 al crear Checkout Sessions, PaymentIntents y
+SetupIntents
+([changelog](https://docs.stripe.com/changelog/endive/2026-09-30/remove-payment-method-types-checkout-sessions)).
+
+- `stripe_checkout` muestra en la página de Stripe los métodos activos que
+  admiten la moneda y el monto.
+- `stripe_paymentintents` confirma el `cardToken` con
+  `automatic_payment_methods` y `allow_redirects: never`, así que Stripe no
+  exige `return_url`. La autenticación 3DS de la tarjeta llega en
+  `next_action` y el estado queda `pending`.
+- `metadata['payment_method_types']` no tiene efecto y `paymentMethodSchema()`
+  de los dos drivers devuelve `[]`.
+- `WebhookResult::$paymentMethod` lleva la marca si el cargo es de tarjeta
+  (`visa`) o el tipo del cargo si no lo es (`link`). El driver lo lee del
+  `latest_charge` expandido del PaymentIntent, también en el aviso
+  `checkout.session.completed`, que trae el PaymentIntent sin expandir.
 
 ## Divisas soportadas
 

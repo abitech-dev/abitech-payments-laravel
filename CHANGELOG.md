@@ -6,6 +6,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Incompatible.** Los drivers de Stripe dejan de enviar `payment_method_types`,
+  que la API `2026-09-30.endive` de stripe-php 22 rechaza con 400 en Checkout
+  Sessions y PaymentIntents. Los métodos de pago se activan en el panel de
+  Stripe (métodos dinámicos): Checkout muestra los activos y PaymentIntents
+  confirma el `cardToken` con `automatic_payment_methods` sin redirecciones.
+  `metadata['payment_method_types']` ya no tiene efecto y `paymentMethodSchema()`
+  de `stripe_checkout` y `stripe_paymentintents` devuelve `[]`, así que el panel
+  del host deja de mostrar «Métodos habilitados».
+
 ### Corregido
 
 - Las suscripciones de Stripe leen `nextBillingDate` del `current_period_end`

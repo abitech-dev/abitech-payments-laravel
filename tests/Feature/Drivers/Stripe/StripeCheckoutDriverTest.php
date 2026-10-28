@@ -73,6 +73,29 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame(['latest_charge'], $stripe->requests[0]['params']['expand']);
     }
 
+    public function test_purchase_lets_stripe_choose_the_payment_methods(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, self::checkoutSession()]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: '10.00',
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            successUrl: 'https://app.example.com/ok',
+            cancelUrl: 'https://app.example.com/cancelado',
+            metadata: ['payment_method_types' => ['card']],
+        ));
+
+        $this->assertArrayNotHasKey('payment_method_types', $stripe->requests[0]['params']);
+        $this->assertArrayNotHasKey('allowed_payment_method_types', $stripe->requests[0]['params']);
+    }
+
+    public function test_the_admin_panel_gets_no_stripe_checkout_settings(): void
+    {
+        $this->assertSame([], PaymentManager::getPaymentMethodSchemas()['stripe_checkout']['fields']);
+    }
+
     public function test_purchase_sends_the_amount_in_cents(): void
     {
         $stripe = FakeStripeHttpClient::install([[200, ['id' => 'cs_1', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/cs_1']]]);

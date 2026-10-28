@@ -85,6 +85,30 @@ class StripePaymentIntentsDriverTest extends TestCase
         $this->assertSame(['latest_charge'], $stripe->requests[0]['params']['expand']);
     }
 
+    public function test_purchase_confirms_the_card_without_redirect_based_methods(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, ['id' => 'pi_1', 'object' => 'payment_intent', 'status' => 'succeeded']]]);
+
+        $this->driver()->purchase(new PaymentRequest(
+            amount: '10.00',
+            currency: 'USD',
+            email: 'cliente@example.com',
+            description: 'Plan mensual',
+            cardToken: 'pm_1',
+            metadata: ['payment_method_types' => ['card']],
+        ));
+
+        $params = $stripe->requests[0]['params'];
+        $this->assertSame(['enabled' => 'true', 'allow_redirects' => 'never'], $params['automatic_payment_methods']);
+        $this->assertArrayNotHasKey('payment_method_types', $params);
+        $this->assertSame('pm_1', $params['payment_method']);
+    }
+
+    public function test_the_admin_panel_gets_no_stripe_payment_intents_settings(): void
+    {
+        $this->assertSame([], PaymentManager::getPaymentMethodSchemas()['stripe_paymentintents']['fields']);
+    }
+
     public function test_purchase_sends_the_amount_in_cents(): void
     {
         $stripe = FakeStripeHttpClient::install([[200, ['id' => 'pi_1', 'object' => 'payment_intent', 'status' => 'succeeded']]]);

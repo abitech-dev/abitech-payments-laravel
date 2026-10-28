@@ -39,17 +39,12 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     /** Cliente de Stripe inicializado en authenticate(). */
     protected ?StripeClient $client = null;
 
+    /**
+     * Los métodos de pago se activan en el panel de Stripe, no en el host.
+     */
     public static function paymentMethodSchema(): array
     {
-        return [
-            ['key' => 'payment_method_types', 'type' => 'checkboxes', 'label' => 'Métodos habilitados', 'default' => ['card'], 'options' => [
-                ['id' => 'card', 'label' => 'Tarjeta crédito/débito'],
-                ['id' => 'ideal', 'label' => 'iDEAL'],
-                ['id' => 'bancontact', 'label' => 'Bancontact'],
-                ['id' => 'sofort', 'label' => 'SOFORT'],
-                ['id' => 'sepa_debit', 'label' => 'SEPA Direct Debit'],
-            ]],
-        ];
+        return [];
     }
 
     public function getGatewayName(): string
@@ -111,8 +106,6 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         $this->throttle('stripe_checkout:purchase');
 
         return $this->retry(function () use ($request, $successUrl, $cancelUrl, $unitAmount) {
-            $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
-
             $session = $this->client->checkout->sessions->create([
                 'line_items' => [[
                     'price_data' => [
@@ -123,7 +116,6 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     'quantity' => 1,
                 ]],
                 'mode' => 'payment',
-                'payment_method_types' => $paymentMethodTypes,
                 'success_url' => $successUrl,
                 'cancel_url' => $cancelUrl,
                 'customer_email' => $request->email,
