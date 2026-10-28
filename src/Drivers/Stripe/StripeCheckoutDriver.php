@@ -20,6 +20,7 @@ use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Illuminate\Support\Carbon;
 use Stripe\StripeClient;
+use Stripe\Subscription;
 
 class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
 {
@@ -38,17 +39,12 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     /** Cliente de Stripe inicializado en authenticate(). */
     protected ?StripeClient $client = null;
 
+    /**
+     * Los métodos de pago se activan en el panel de Stripe, no en el host.
+     */
     public static function paymentMethodSchema(): array
     {
-        return [
-            ['key' => 'payment_method_types', 'type' => 'checkboxes', 'label' => 'Métodos habilitados', 'default' => ['card'], 'options' => [
-                ['id' => 'card', 'label' => 'Tarjeta crédito/débito'],
-                ['id' => 'ideal', 'label' => 'iDEAL'],
-                ['id' => 'bancontact', 'label' => 'Bancontact'],
-                ['id' => 'sofort', 'label' => 'SOFORT'],
-                ['id' => 'sepa_debit', 'label' => 'SEPA Direct Debit'],
-            ]],
-        ];
+        return [];
     }
 
     public function getGatewayName(): string
@@ -110,8 +106,6 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         $this->throttle('stripe_checkout:purchase');
 
         return $this->retry(function () use ($request, $successUrl, $cancelUrl, $unitAmount) {
-            $paymentMethodTypes = $request->metadata['payment_method_types'] ?? ['card'];
-
             $session = $this->client->checkout->sessions->create([
                 'line_items' => [[
                     'price_data' => [
@@ -122,7 +116,6 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                     'quantity' => 1,
                 ]],
                 'mode' => 'payment',
-                'payment_method_types' => $paymentMethodTypes,
                 'success_url' => $successUrl,
                 'cancel_url' => $cancelUrl,
                 'customer_email' => $request->email,
@@ -279,25 +272,25 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             return [];
         }
 
-        try {
-            if (str_starts_with($type, 'checkout.session')) {
-                return $this->readCardFromExpandedSession($object);
-            }
+        // El aviso trae el PaymentIntent de la sesión como id, sin expandir.
+        $paymentIntentId = str_starts_with($type, 'checkout.session')
+            ? ($object['payment_intent'] ?? null)
+            : ($object['id'] ?? null);
 
-            return $this->readCardFromPaymentIntent($object['id'] ?? null);
+        try {
+            return $this->readCardFromPaymentIntent(is_string($paymentIntentId) ? $paymentIntentId : null);
         } catch (PaymentGatewayException $exception) {
             $this->logRecoveredFailure('No se pudo leer la tarjeta del PaymentIntent de Stripe.', [
-                'payment_intent' => $object['id'] ?? null,
+                'payment_intent' => $paymentIntentId,
             ], $exception);
 
-            return ['payment_method' => ($object['payment_method_types'][0] ?? null)];
+            return [];
         }
     }
 
     protected function readCardFromExpandedSession(array $session): array
     {
-        return $this->cardFromStripeCharge($session['payment_intent']['latest_charge'] ?? null)
-            ?: ['payment_method' => ($session['payment_method_types'][0] ?? null)];
+        return $this->paymentMethodFromStripeCharge($session['payment_intent']['latest_charge'] ?? null);
     }
 
     /**
@@ -365,18 +358,12 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         }
 
         $this->throttle('stripe_checkout:webhook');
-        $pi = $this->retry(fn () => $this->client->paymentIntents->retrieve($piId));
-        $card = $pi->latest_charge?->payment_method_details?->card;
+        $intent = $this->retry(fn () => $this->client->paymentIntents->retrieve(
+            $piId,
+            ['expand' => ['latest_charge']]
+        ));
 
-        if ($card) {
-            return [
-                'payment_method' => $card->brand ?? 'card',
-                'brand' => $card->brand ?? null,
-                'last_four' => $card->last4 ?? null,
-            ];
-        }
-
-        return [];
+        return $this->paymentMethodFromStripeCharge($intent->toArray()['latest_charge'] ?? null);
     }
 
     protected function buildStripeCustomerDetails(PaymentRequest $request): array
@@ -432,7 +419,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
                 planId: $request->planId,
-                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
+                nextBillingDate: $this->nextBillingDateOf($subscription),
                 raw: $subscription->toArray()
             );
         });
@@ -477,7 +464,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
                 planId: $request->planId,
-                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
+                nextBillingDate: $this->nextBillingDateOf($subscription),
                 raw: $subscription->toArray()
             );
         });
@@ -495,10 +482,20 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 success: true,
                 subscriptionId: $subscription->id,
                 status: $subscription->status,
-                nextBillingDate: Carbon::createFromTimestamp($subscription->current_period_end)->toIso8601String(),
+                nextBillingDate: $this->nextBillingDateOf($subscription),
                 raw: $subscription->toArray()
             );
         });
+    }
+
+    /**
+     * Desde la API `2025-03-31.basil` el fin del período vive en cada ítem.
+     */
+    protected function nextBillingDateOf(Subscription $subscription): ?string
+    {
+        $periodEnd = $subscription->items->data[0]->current_period_end ?? null;
+
+        return $periodEnd === null ? null : Carbon::createFromTimestamp($periodEnd)->toIso8601String();
     }
 
     /**

@@ -6,6 +6,34 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Incompatible.** Los drivers de Stripe dejan de enviar `payment_method_types`,
+  que la API `2026-09-30.endive` de stripe-php 22 rechaza con 400 en Checkout
+  Sessions y PaymentIntents. Los métodos de pago se activan en el panel de
+  Stripe (métodos dinámicos): Checkout muestra los activos y PaymentIntents
+  confirma el `cardToken` con `automatic_payment_methods` sin redirecciones.
+  `metadata['payment_method_types']` ya no tiene efecto y `paymentMethodSchema()`
+  de `stripe_checkout` y `stripe_paymentintents` devuelve `[]`, así que el panel
+  del host deja de mostrar «Métodos habilitados».
+- **Incompatible.** Los drivers de Stripe piden `stripe/stripe-php` de la 17 a
+  la 22 y el paquete declara `conflict` con `<17.0`. El CI prueba la 17.0 en
+  `--prefer-lowest` y la 22 en el resto.
+
+### Corregido
+
+- Las suscripciones de Stripe leen `nextBillingDate` del `current_period_end`
+  del primer ítem; la API `2025-03-31.basil` de stripe-php 17 lo quitó de la
+  suscripción y `createSubscription()`, `updateSubscription()` y
+  `getSubscription()` fallaban con `TypeError`.
+- Los avisos de Stripe leen el medio de pago del cargo del PaymentIntent,
+  consultado con `latest_charge` expandido. Antes lo consultaban sin expandir y,
+  en Checkout, tomaban el primero de `payment_method_types`, que con métodos
+  dinámicos es la lista de los disponibles y no el usado. Un cargo que no es de
+  tarjeta informa su tipo (`link`) en `paymentMethod`, y el aviso
+  `checkout.session.completed` hace esa consulta porque trae el PaymentIntent
+  sin expandir.
+
 ## [2.1.0] - 2026-10-26
 
 ### Agregado
