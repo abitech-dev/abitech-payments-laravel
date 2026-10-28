@@ -6,6 +6,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+## [3.0.0] - 2026-10-27
+
 ### Cambiado
 
 - **Incompatible.** Los drivers de Stripe dejan de enviar `payment_method_types`,
@@ -185,6 +187,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Eliminado `minimum-stability: dev` de composer.json
 - Corregidas restricciones de version de PHP/illuminate
 
+[3.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.0.0
 [2.1.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.1.0
 [2.0.2]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.2
 [2.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v2.0.0
