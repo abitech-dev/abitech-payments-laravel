@@ -280,25 +280,25 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             return [];
         }
 
-        try {
-            if (str_starts_with($type, 'checkout.session')) {
-                return $this->readCardFromExpandedSession($object);
-            }
+        // El aviso trae el PaymentIntent de la sesión como id, sin expandir.
+        $paymentIntentId = str_starts_with($type, 'checkout.session')
+            ? ($object['payment_intent'] ?? null)
+            : ($object['id'] ?? null);
 
-            return $this->readCardFromPaymentIntent($object['id'] ?? null);
+        try {
+            return $this->readCardFromPaymentIntent(is_string($paymentIntentId) ? $paymentIntentId : null);
         } catch (PaymentGatewayException $exception) {
             $this->logRecoveredFailure('No se pudo leer la tarjeta del PaymentIntent de Stripe.', [
-                'payment_intent' => $object['id'] ?? null,
+                'payment_intent' => $paymentIntentId,
             ], $exception);
 
-            return ['payment_method' => ($object['payment_method_types'][0] ?? null)];
+            return [];
         }
     }
 
     protected function readCardFromExpandedSession(array $session): array
     {
-        return $this->cardFromStripeCharge($session['payment_intent']['latest_charge'] ?? null)
-            ?: ['payment_method' => ($session['payment_method_types'][0] ?? null)];
+        return $this->paymentMethodFromStripeCharge($session['payment_intent']['latest_charge'] ?? null);
     }
 
     /**
@@ -366,18 +366,12 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         }
 
         $this->throttle('stripe_checkout:webhook');
-        $pi = $this->retry(fn () => $this->client->paymentIntents->retrieve($piId));
-        $card = $pi->latest_charge?->payment_method_details?->card;
+        $intent = $this->retry(fn () => $this->client->paymentIntents->retrieve(
+            $piId,
+            ['expand' => ['latest_charge']]
+        ));
 
-        if ($card) {
-            return [
-                'payment_method' => $card->brand ?? 'card',
-                'brand' => $card->brand ?? null,
-                'last_four' => $card->last4 ?? null,
-            ];
-        }
-
-        return [];
+        return $this->paymentMethodFromStripeCharge($intent->toArray()['latest_charge'] ?? null);
     }
 
     protected function buildStripeCustomerDetails(PaymentRequest $request): array

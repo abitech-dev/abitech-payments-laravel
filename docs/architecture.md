@@ -248,7 +248,7 @@ El paquete provee varios traits reutilizables para drivers:
 | `HandlesMercadoPagoWebhook` | Logica compartida de webhooks MP (solo para drivers MP) |
 | `HandlesMercadoPagoPaymentLookup` | `findPayment()` de los drivers MP, por id o por referencia externa |
 | `HandlesMercadoPagoRefund` | Reembolso total o parcial de un pago MP |
-| `ReadsStripeCards` | Marca y últimos dígitos de un cargo de Stripe expandido |
+| `ReadsStripeCards` | Marca y últimos dígitos de un cargo de Stripe expandido, o su tipo si no es de tarjeta |
 | `ValidatesAmounts` | Exige el monto como cadena decimal en unidad mayor (`'19.99'`) |
 | `ConvertsStripeAmounts` | Pasa el monto a la unidad menor de Stripe y de vuelta, con las monedas sin decimales tal cual |
 | `ConvertsMercadoPagoAmounts` | Pasa el monto al número en unidad mayor que espera MP y de vuelta |

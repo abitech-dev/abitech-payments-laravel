@@ -70,6 +70,7 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame('4242', $result->cardLastFour);
         $this->assertSame('10.00', $result->amount);
         $this->assertCount(1, $stripe->requests);
+        $this->assertSame(['latest_charge'], $stripe->requests[0]['params']['expand']);
     }
 
     public function test_purchase_sends_the_amount_in_cents(): void
@@ -176,6 +177,7 @@ class StripeCheckoutDriverTest extends TestCase
 
         $this->assertSame('completed', $result->status);
         $this->assertNull($result->cardLastFour);
+        $this->assertNull($result->paymentMethod);
         Log::shouldHaveReceived('warning')->once()->withArgs(
             fn (string $message, array $context) => $context['payment_intent'] === 'pi_1'
                 && $context['gateway'] === 'stripe_checkout'
@@ -245,23 +247,41 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame(1767225600, Carbon::parse($response->nextBillingDate)->getTimestamp());
     }
 
-    public function test_a_completed_checkout_session_webhook_reads_the_expanded_card(): void
+    public function test_a_completed_checkout_session_webhook_reads_the_card_of_its_payment_intent(): void
     {
-        $stripe = FakeStripeHttpClient::install([]);
+        $stripe = FakeStripeHttpClient::install([[200, $this->paymentIntentWithCard()]]);
         $request = StripeWebhookRequest::signed('checkout.session.completed', [
             'id' => 'cs_1',
             'object' => 'checkout.session',
+            'status' => 'complete',
+            'payment_status' => 'paid',
             'amount_total' => 1999,
             'currency' => 'usd',
-            'payment_intent' => ['latest_charge' => ['payment_method_details' => ['card' => ['brand' => 'visa', 'last4' => '4242']]]],
+            'payment_intent' => 'pi_1',
+            'payment_method_types' => ['card', 'link'],
         ], self::WEBHOOK_SECRET);
 
         $result = $this->driver()->handleWebhook($request);
 
         $this->assertSame('completed', $result->status);
         $this->assertSame('19.99', $result->amount);
+        $this->assertSame('visa', $result->paymentMethod);
         $this->assertSame('4242', $result->cardLastFour);
-        $this->assertSame([], $stripe->requests);
+        $this->assertStringEndsWith('/v1/payment_intents/pi_1', $stripe->requests[0]['url']);
+        $this->assertSame(['latest_charge'], $stripe->requests[0]['params']['expand']);
+    }
+
+    public function test_a_payment_without_card_reports_the_payment_method_type_of_its_charge(): void
+    {
+        $session = self::sessionWith('complete', 'paid', 'succeeded');
+        $session['payment_intent']['latest_charge']['payment_method_details'] = ['type' => 'link', 'link' => ['country' => 'PE']];
+        FakeStripeHttpClient::install([[200, $session]]);
+
+        $result = $this->driver()->findPayment('cs_1');
+
+        $this->assertSame('link', $result->paymentMethod);
+        $this->assertNull($result->cardBrand);
+        $this->assertNull($result->cardLastFour);
     }
 
     public function test_an_unrelated_event_is_ignored(): void
@@ -494,7 +514,7 @@ class StripeCheckoutDriverTest extends TestCase
             'client_reference_id' => 'ref-1',
             'amount_total' => 1999,
             'currency' => 'pen',
-            'payment_method_types' => ['card'],
+            'payment_method_types' => ['card', 'link'],
             'payment_intent' => $intentStatus === null ? null : [
                 'id' => 'pi_1',
                 'object' => 'payment_intent',
@@ -503,7 +523,7 @@ class StripeCheckoutDriverTest extends TestCase
                     'id' => 'ch_1',
                     'object' => 'charge',
                     'refunded' => $refunded,
-                    'payment_method_details' => ['card' => ['brand' => 'visa', 'last4' => '4242']],
+                    'payment_method_details' => ['type' => 'card', 'card' => ['brand' => 'visa', 'last4' => '4242']],
                 ],
             ],
         ];
@@ -554,6 +574,8 @@ class StripeCheckoutDriverTest extends TestCase
             'status' => 'succeeded',
             'amount' => 1000,
             'currency' => 'usd',
+            'latest_charge' => 'ch_1',
+            'payment_method_types' => ['card', 'link'],
         ], self::WEBHOOK_SECRET);
     }
 
@@ -569,7 +591,7 @@ class StripeCheckoutDriverTest extends TestCase
             'latest_charge' => [
                 'id' => 'ch_1',
                 'object' => 'charge',
-                'payment_method_details' => ['card' => ['brand' => 'visa', 'last4' => '4242']],
+                'payment_method_details' => ['type' => 'card', 'card' => ['brand' => 'visa', 'last4' => '4242']],
             ],
         ];
     }

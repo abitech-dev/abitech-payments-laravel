@@ -12,6 +12,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
   del primer ítem; la API `2025-03-31.basil` de stripe-php 17 lo quitó de la
   suscripción y `createSubscription()`, `updateSubscription()` y
   `getSubscription()` fallaban con `TypeError`.
+- Los avisos de Stripe leen el medio de pago del cargo del PaymentIntent,
+  consultado con `latest_charge` expandido. Antes lo consultaban sin expandir y,
+  en Checkout, tomaban el primero de `payment_method_types`, que con métodos
+  dinámicos es la lista de los disponibles y no el usado. Un cargo que no es de
+  tarjeta informa su tipo (`link`) en `paymentMethod`, y el aviso
+  `checkout.session.completed` hace esa consulta porque trae el PaymentIntent
+  sin expandir.
 
 ## [2.1.0] - 2026-10-26
 

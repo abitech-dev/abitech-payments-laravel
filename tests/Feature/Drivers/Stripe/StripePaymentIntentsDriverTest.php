@@ -82,6 +82,7 @@ class StripePaymentIntentsDriverTest extends TestCase
         $this->assertSame('4242', $result->cardLastFour);
         $this->assertSame('10.00', $result->amount);
         $this->assertCount(1, $stripe->requests);
+        $this->assertSame(['latest_charge'], $stripe->requests[0]['params']['expand']);
     }
 
     public function test_purchase_sends_the_amount_in_cents(): void
@@ -433,7 +434,7 @@ class StripePaymentIntentsDriverTest extends TestCase
                 'id' => 'ch_1',
                 'object' => 'charge',
                 'refunded' => $refunded,
-                'payment_method_details' => ['card' => ['brand' => 'visa', 'last4' => '4242']],
+                'payment_method_details' => ['type' => 'card', 'card' => ['brand' => 'visa', 'last4' => '4242']],
             ],
         ];
     }
@@ -451,6 +452,9 @@ class StripePaymentIntentsDriverTest extends TestCase
             'status' => 'succeeded',
             'amount' => 1000,
             'currency' => 'usd',
+            'latest_charge' => 'ch_1',
+            'payment_method' => 'pm_1',
+            'payment_method_types' => ['card'],
         ], self::WEBHOOK_SECRET);
     }
 
@@ -463,10 +467,11 @@ class StripePaymentIntentsDriverTest extends TestCase
             'id' => 'pi_1',
             'object' => 'payment_intent',
             'status' => 'succeeded',
+            'payment_method' => 'pm_1',
             'latest_charge' => [
                 'id' => 'ch_1',
                 'object' => 'charge',
-                'payment_method_details' => ['card' => ['brand' => 'visa', 'last4' => '4242']],
+                'payment_method_details' => ['type' => 'card', 'card' => ['brand' => 'visa', 'last4' => '4242']],
             ],
         ];
     }

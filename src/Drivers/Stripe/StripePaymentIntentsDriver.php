@@ -239,7 +239,7 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
         }
 
         $intent = $intent->toArray();
-        $card = $this->cardFromStripeCharge($intent['latest_charge'] ?? null);
+        $card = $this->paymentMethodFromStripeCharge($intent['latest_charge'] ?? null);
 
         return new WebhookResult(
             gateway: 'stripe',
@@ -275,16 +275,14 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
     {
         try {
             $this->throttle('stripe_paymentintents:webhook');
-            $pi = $this->retry(fn () => $this->client->paymentIntents->retrieve($paymentIntentId));
+            $pi = $this->retry(fn () => $this->client->paymentIntents->retrieve(
+                $paymentIntentId,
+                ['expand' => ['latest_charge']]
+            ));
+            $fromCharge = $this->paymentMethodFromStripeCharge($pi->toArray()['latest_charge'] ?? null);
 
-            if ($pi->latest_charge && $pi->latest_charge->payment_method_details?->card) {
-                $c = $pi->latest_charge->payment_method_details->card;
-
-                return [
-                    'payment_method' => $c->brand ?? 'card',
-                    'brand' => $c->brand ?? null,
-                    'last_four' => $c->last4 ?? null,
-                ];
+            if ($fromCharge !== []) {
+                return $fromCharge;
             }
 
             $pmId = $pi->payment_method ?? null;
