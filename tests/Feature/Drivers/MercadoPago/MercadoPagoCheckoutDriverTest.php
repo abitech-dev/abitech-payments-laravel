@@ -251,7 +251,8 @@ class MercadoPagoCheckoutDriverTest extends TestCase
         ));
 
         $payload = json_decode($mercadoPago->requests[0]->getPayload(), true);
-        $this->assertSame('2026-11-12T15:00:00+00:00', $payload['auto_recurring']['start_date']);
+        $this->assertSame('2026-11-12T15:00:00.000Z', $payload['auto_recurring']['start_date']);
+        $this->assertSame('2028-10-29T15:00:00.000Z', $payload['auto_recurring']['end_date']);
     }
 
     /**

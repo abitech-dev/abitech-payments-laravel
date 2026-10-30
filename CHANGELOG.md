@@ -25,6 +25,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
   `init_point` como `redirectUrl`.
 - El preapproval envía la semana como 7 días y el año como 12 meses, porque
   Mercado Pago solo admite `days` y `months`.
+- El preapproval envía `start_date` y `end_date` en UTC con milisegundos.
+  Sin ellos Mercado Pago respondía 400 «Invalid format» a toda alta.
 
 ## [3.0.1] - 2026-10-28
 

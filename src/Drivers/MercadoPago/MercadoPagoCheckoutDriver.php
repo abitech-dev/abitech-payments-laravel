@@ -220,8 +220,8 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                     'frequency_type' => $frequencyType,
                     'transaction_amount' => $request->amount === null ? null : $this->toMercadoPagoAmount($request->amount),
                     'currency_id' => $request->currency,
-                    'start_date' => $startDate->toIso8601String(),
-                    'end_date' => $endDate->toIso8601String(),
+                    'start_date' => self::preapprovalDate($startDate),
+                    'end_date' => self::preapprovalDate($endDate),
                 ],
                 'payer_email' => $request->email,
                 'card_token_id' => $request->cardToken,
@@ -309,6 +309,12 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             redirectUrl: $preapproval->init_point ?? null,
             externalReference: $preapproval->external_reference ?? null,
         );
+    }
+
+    // El preapproval rechaza las fechas sin milisegundos.
+    private static function preapprovalDate(Carbon $date): string
+    {
+        return $date->copy()->utc()->format('Y-m-d\TH:i:s.v\Z');
     }
 
     /**
