@@ -6,6 +6,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+## [3.2.0] - 2026-10-30
+
 ### Agregado
 
 - `SubscriptionChargesInterface` con `subscriptionCharges()` y
@@ -237,6 +239,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Eliminado `minimum-stability: dev` de composer.json
 - Corregidas restricciones de version de PHP/illuminate
 
+[3.2.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.2.0
 [3.1.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.1.0
 [3.0.1]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.0.1
 [3.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.0.0
