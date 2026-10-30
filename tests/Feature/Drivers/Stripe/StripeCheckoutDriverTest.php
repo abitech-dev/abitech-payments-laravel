@@ -250,6 +250,92 @@ class StripeCheckoutDriverTest extends TestCase
         $this->assertSame(4990, $stripe->requests[1]['params']['unit_amount']);
     }
 
+    public function test_create_subscription_with_return_urls_opens_a_subscription_checkout(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, self::checkoutSession()]]);
+
+        $response = $this->driver()->createSubscription(new SubscriptionRequest(
+            planId: 'Membresía mensual',
+            email: 'cliente@example.com',
+            interval: 'month',
+            intervalCount: 1,
+            amount: '49.90',
+            currency: 'USD',
+            trialDays: 14,
+            metadata: ['subscription_id' => 'sub-uuid', 'app_scope' => 'academy'],
+            externalReference: 'sub-uuid',
+            successUrl: 'https://cuenta.example.com/vuelta',
+            cancelUrl: 'https://cuenta.example.com/cancelar',
+        ));
+
+        $params = $stripe->requests[0]['params'];
+        $this->assertStringEndsWith('/v1/checkout/sessions', $stripe->requests[0]['url']);
+        $this->assertSame('subscription', $params['mode']);
+        $this->assertSame(['interval' => 'month', 'interval_count' => 1], $params['line_items'][0]['price_data']['recurring']);
+        $this->assertSame(4990, $params['line_items'][0]['price_data']['unit_amount']);
+        $this->assertSame('sub-uuid', $params['client_reference_id']);
+        $this->assertSame(14, $params['subscription_data']['trial_period_days']);
+        $this->assertSame(['subscription_id' => 'sub-uuid', 'app_scope' => 'academy'], $params['subscription_data']['metadata']);
+        $this->assertSame('cs_1', $response->subscriptionId);
+        $this->assertSame('incomplete', $response->status);
+        $this->assertSame('https://checkout.stripe.com/c/cs_1', $response->redirectUrl);
+        $this->assertSame('sub-uuid', $response->externalReference);
+    }
+
+    public function test_a_subscription_checkout_without_trial_sends_no_trial(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, self::checkoutSession()]]);
+
+        $this->driver()->createSubscription(new SubscriptionRequest(
+            planId: 'Plan',
+            email: 'cliente@example.com',
+            amount: '49.90',
+            currency: 'USD',
+            successUrl: 'https://cuenta.example.com/vuelta',
+            cancelUrl: 'https://cuenta.example.com/cancelar',
+        ));
+
+        $this->assertArrayNotHasKey('subscription_data', $stripe->requests[0]['params']);
+    }
+
+    public function test_get_subscription_of_an_open_checkout_is_incomplete(): void
+    {
+        FakeStripeHttpClient::install([[200, [...self::checkoutSession(), 'status' => 'open', 'subscription' => null, 'client_reference_id' => 'sub-uuid']]]);
+
+        $response = $this->driver()->getSubscription('cs_1');
+
+        $this->assertSame('cs_1', $response->subscriptionId);
+        $this->assertSame('incomplete', $response->status);
+        $this->assertSame('https://checkout.stripe.com/c/cs_1', $response->redirectUrl);
+        $this->assertSame('sub-uuid', $response->externalReference);
+    }
+
+    public function test_get_subscription_of_a_completed_checkout_reads_its_subscription(): void
+    {
+        $stripe = FakeStripeHttpClient::install([[200, [
+            ...self::checkoutSession(),
+            'status' => 'complete',
+            'url' => null,
+            'client_reference_id' => 'sub-uuid',
+            'subscription' => [...self::subscriptionObject(), 'status' => 'trialing'],
+        ]]]);
+
+        $response = $this->driver()->getSubscription('cs_1');
+
+        $this->assertSame(['subscription'], $stripe->requests[0]['params']['expand']);
+        $this->assertSame('sub_1', $response->subscriptionId);
+        $this->assertSame('trialing', $response->status);
+        $this->assertSame(1767225600, Carbon::parse($response->nextBillingDate)->getTimestamp());
+        $this->assertNull($response->redirectUrl);
+    }
+
+    public function test_get_subscription_of_an_expired_checkout_is_incomplete_expired(): void
+    {
+        FakeStripeHttpClient::install([[200, [...self::checkoutSession(), 'status' => 'expired', 'url' => null, 'subscription' => null]]]);
+
+        $this->assertSame('incomplete_expired', $this->driver()->getSubscription('cs_1')->status);
+    }
+
     public function test_cancel_subscription_returns_the_cancellation_time(): void
     {
         $stripe = FakeStripeHttpClient::install([[200, ['id' => 'sub_1', 'object' => 'subscription', 'status' => 'canceled']]]);

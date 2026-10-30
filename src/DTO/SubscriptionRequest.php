@@ -6,6 +6,11 @@ namespace Abitech\Payments\DTO;
 
 use Abitech\Payments\Concerns\ValidatesAmounts;
 
+/**
+ * Alta de una suscripción. `externalReference` es la referencia del host
+ * ante la pasarela; con `successUrl` y `cancelUrl` el driver abre su página
+ * de pago, y con `cardToken` la autoriza sin redirigir.
+ */
 class SubscriptionRequest
 {
     use ValidatesAmounts;
@@ -20,7 +25,10 @@ class SubscriptionRequest
         public readonly ?string $currency = null,
         public readonly ?int $trialDays = null,
         public readonly ?string $idempotencyKey = null,
-        public readonly array $metadata = []
+        public readonly array $metadata = [],
+        public readonly ?string $externalReference = null,
+        public readonly ?string $successUrl = null,
+        public readonly ?string $cancelUrl = null,
     ) {
         self::assertDecimalAmount($amount);
     }

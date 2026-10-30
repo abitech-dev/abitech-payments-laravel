@@ -15,6 +15,7 @@ use Abitech\Payments\Tests\TestCase;
 use Closure;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -36,6 +37,7 @@ class MercadoPagoCheckoutDriverTest extends TestCase
     protected function tearDown(): void
     {
         FakeMercadoPagoHttpClient::uninstall();
+        Carbon::setTestNow();
 
         parent::tearDown();
     }
@@ -193,6 +195,107 @@ class MercadoPagoCheckoutDriverTest extends TestCase
         $payload = json_decode($mercadoPago->requests[0]->getPayload(), true);
         $this->assertSame('months', $payload['auto_recurring']['frequency_type']);
         $this->assertSame(49.9, $payload['auto_recurring']['transaction_amount']);
+    }
+
+    public function test_create_subscription_sends_the_reference_and_returns_the_init_point(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, self::preapproval()]]);
+
+        $response = $this->driver()->createSubscription(new SubscriptionRequest(
+            planId: 'plan-mensual',
+            email: 'cliente@example.com',
+            amount: '49.90',
+            currency: 'PEN',
+            externalReference: 'sub-uuid',
+            successUrl: 'https://cuenta.example.com/checkout/vuelta',
+        ));
+
+        $payload = json_decode($mercadoPago->requests[0]->getPayload(), true);
+        $this->assertSame('sub-uuid', $payload['external_reference']);
+        $this->assertSame('https://cuenta.example.com/checkout/vuelta', $payload['back_url']);
+        $this->assertSame('pending', $payload['status']);
+        $this->assertArrayNotHasKey('card_token_id', $payload);
+        $this->assertSame('https://www.mercadopago.com.pe/subscriptions/checkout?preapproval_id=pre_1', $response->redirectUrl);
+        $this->assertSame('sub-uuid', $response->externalReference);
+    }
+
+    public function test_a_card_token_creates_an_authorized_preapproval(): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, [...self::preapproval(), 'status' => 'authorized']]]);
+
+        $response = $this->driver()->createSubscription(new SubscriptionRequest(
+            planId: 'plan-mensual',
+            email: 'cliente@example.com',
+            cardToken: 'tok_1',
+            amount: '49.90',
+            currency: 'PEN',
+        ));
+
+        $payload = json_decode($mercadoPago->requests[0]->getPayload(), true);
+        $this->assertSame('tok_1', $payload['card_token_id']);
+        $this->assertSame('authorized', $payload['status']);
+        $this->assertSame('authorized', $response->status);
+    }
+
+    public function test_a_trial_moves_the_first_debit_to_its_end(): void
+    {
+        Carbon::setTestNow('2026-10-29T15:00:00Z');
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, self::preapproval()]]);
+
+        $this->driver()->createSubscription(new SubscriptionRequest(
+            planId: 'plan-mensual',
+            email: 'cliente@example.com',
+            amount: '49.90',
+            currency: 'PEN',
+            trialDays: 14,
+        ));
+
+        $payload = json_decode($mercadoPago->requests[0]->getPayload(), true);
+        $this->assertSame('2026-11-12T15:00:00.000Z', $payload['auto_recurring']['start_date']);
+        $this->assertSame('2028-10-29T15:00:00.000Z', $payload['auto_recurring']['end_date']);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: int, 2: int, 3: string}>
+     */
+    public static function frequencies(): array
+    {
+        return [
+            'día' => ['day', 3, 3, 'days'],
+            'semana en días' => ['week', 2, 14, 'days'],
+            'mes' => ['month', 3, 3, 'months'],
+            'año en meses' => ['year', 1, 12, 'months'],
+        ];
+    }
+
+    #[DataProvider('frequencies')]
+    public function test_the_interval_is_sent_in_the_units_mercado_pago_accepts(string $interval, int $count, int $frequency, string $type): void
+    {
+        $mercadoPago = FakeMercadoPagoHttpClient::install([[201, self::preapproval()]]);
+
+        $this->driver()->createSubscription(new SubscriptionRequest(
+            planId: 'plan',
+            email: 'cliente@example.com',
+            interval: $interval,
+            intervalCount: $count,
+            amount: '10.00',
+            currency: 'PEN',
+        ));
+
+        $payload = json_decode($mercadoPago->requests[0]->getPayload(), true);
+        $this->assertSame($frequency, $payload['auto_recurring']['frequency']);
+        $this->assertSame($type, $payload['auto_recurring']['frequency_type']);
+    }
+
+    public function test_get_subscription_returns_the_reference_and_the_init_point(): void
+    {
+        FakeMercadoPagoHttpClient::install([[200, [...self::preapproval(), 'status' => 'authorized']]]);
+
+        $response = $this->driver()->getSubscription('pre_1');
+
+        $this->assertSame('authorized', $response->status);
+        $this->assertSame('sub-uuid', $response->externalReference);
+        $this->assertSame('https://www.mercadopago.com.pe/subscriptions/checkout?preapproval_id=pre_1', $response->redirectUrl);
     }
 
     public function test_cancel_subscription_marks_the_preapproval_cancelled(): void
@@ -420,6 +523,8 @@ class MercadoPagoCheckoutDriverTest extends TestCase
             'id' => 'pre_1',
             'status' => 'pending',
             'reason' => 'plan-mensual',
+            'external_reference' => 'sub-uuid',
+            'init_point' => 'https://www.mercadopago.com.pe/subscriptions/checkout?preapproval_id=pre_1',
             'auto_recurring' => ['start_date' => '2026-10-15T00:00:00.000-05:00'],
         ];
     }
