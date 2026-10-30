@@ -19,6 +19,7 @@ use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Illuminate\Support\Carbon;
+use Stripe\Checkout\Session;
 use Stripe\StripeClient;
 use Stripe\Subscription;
 
@@ -383,11 +384,16 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
     }
 
     /**
-     * Crea una suscripcion en Stripe: crea Customer, Price recurrente y Subscription.
-     * El planId se usa como nombre del producto.
+     * Con `successUrl` y `cancelUrl` abre Stripe Checkout en modo suscripción
+     * y devuelve la sesión `cs_`; sin ellas crea Customer, Price y
+     * Subscription. El planId se usa como nombre del producto.
      */
     public function createSubscription(SubscriptionRequest $request): SubscriptionResponse
     {
+        if ($request->successUrl !== null && $request->cancelUrl !== null) {
+            return $this->createSubscriptionCheckout($request);
+        }
+
         $unitAmount = $this->toStripeAmount($request->amount ?? '0', $request->currency ?? 'usd');
         $this->authenticate();
         $this->throttle('stripe_checkout:create_subscription');
@@ -470,10 +476,20 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         });
     }
 
+    /**
+     * Una sesión `cs_` informa la suscripción que creó al completarse; antes
+     * queda `incomplete`, y vencida, `incomplete_expired`.
+     */
     public function getSubscription(string $subscriptionId): SubscriptionResponse
     {
         $this->authenticate();
         $this->throttle('stripe_checkout:get_subscription');
+
+        if (str_starts_with($subscriptionId, 'cs_')) {
+            return $this->retry(fn () => $this->subscriptionOfCheckout(
+                $this->client->checkout->sessions->retrieve($subscriptionId, ['expand' => ['subscription']]),
+            ));
+        }
 
         return $this->retry(function () use ($subscriptionId) {
             $subscription = $this->client->subscriptions->retrieve($subscriptionId);
@@ -486,6 +502,67 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
                 raw: $subscription->toArray()
             );
         });
+    }
+
+    protected function createSubscriptionCheckout(SubscriptionRequest $request): SubscriptionResponse
+    {
+        $currency = $request->currency ?? 'usd';
+        $this->validateCurrency(strtoupper($currency));
+        $unitAmount = $this->toStripeAmount($request->amount ?? '0', $currency);
+        $this->authenticate();
+        $this->throttle('stripe_checkout:create_subscription');
+
+        return $this->retry(function () use ($request, $currency, $unitAmount) {
+            $session = $this->client->checkout->sessions->create(array_filter([
+                'mode' => 'subscription',
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => strtolower($currency),
+                        'product_data' => ['name' => $request->planId],
+                        'unit_amount' => $unitAmount,
+                        'recurring' => [
+                            'interval' => $request->interval ?? 'month',
+                            'interval_count' => $request->intervalCount ?? 1,
+                        ],
+                    ],
+                    'quantity' => 1,
+                ]],
+                'success_url' => $request->successUrl,
+                'cancel_url' => $request->cancelUrl,
+                'customer_email' => $request->email,
+                'client_reference_id' => $request->externalReference,
+                'metadata' => $request->metadata ?: null,
+                'subscription_data' => array_filter([
+                    'trial_period_days' => $request->trialDays ?: null,
+                    'metadata' => $request->metadata ?: null,
+                ]) ?: null,
+            ], fn (mixed $value): bool => $value !== null));
+
+            return new SubscriptionResponse(
+                success: true,
+                subscriptionId: $session->id,
+                status: 'incomplete',
+                planId: $request->planId,
+                raw: $session->toArray(),
+                redirectUrl: $session->url,
+                externalReference: $request->externalReference,
+            );
+        });
+    }
+
+    protected function subscriptionOfCheckout(Session $session): SubscriptionResponse
+    {
+        $subscription = $session->subscription instanceof Subscription ? $session->subscription : null;
+
+        return new SubscriptionResponse(
+            success: true,
+            subscriptionId: $subscription->id ?? $session->id,
+            status: $subscription->status ?? ($session->status === 'expired' ? 'incomplete_expired' : 'incomplete'),
+            nextBillingDate: $subscription === null ? null : $this->nextBillingDateOf($subscription),
+            raw: $session->toArray(),
+            redirectUrl: $session->url ?? null,
+            externalReference: $session->client_reference_id ?? null,
+        );
     }
 
     /**

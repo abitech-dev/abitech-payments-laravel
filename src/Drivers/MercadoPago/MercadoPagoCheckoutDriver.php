@@ -194,6 +194,10 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
     // ─── Subscriptions (Preapproval) ────────────────────────────────────────
 
+    /**
+     * Sin `cardToken` la suscripción queda `pending` y la persona la autoriza
+     * en `init_point`. Un trial mueve el primer débito a su fin.
+     */
     public function createSubscription(SubscriptionRequest $request): SubscriptionResponse
     {
         $this->authenticate();
@@ -202,34 +206,30 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         return $this->retry(function () use ($request) {
             $client = new PreApprovalClient();
 
-            $startDate = Carbon::now();
+            $startDate = Carbon::now()->addDays($request->trialDays ?? 0);
             $endDate = isset($request->metadata['end_date'])
                 ? Carbon::parse($request->metadata['end_date'])
                 : Carbon::now()->addYears(2);
+            [$frequency, $frequencyType] = $this->frequencyOf($request->interval ?? 'month', $request->intervalCount ?? 1);
 
-            $preapproval = $client->create([
+            $preapproval = $client->create(array_filter([
                 'reason' => $request->planId,
+                'external_reference' => $request->externalReference,
                 'auto_recurring' => [
-                    'frequency' => $request->intervalCount ?? 1,
-                    'frequency_type' => $this->mapInterval($request->interval),
+                    'frequency' => $frequency,
+                    'frequency_type' => $frequencyType,
                     'transaction_amount' => $request->amount === null ? null : $this->toMercadoPagoAmount($request->amount),
                     'currency_id' => $request->currency,
                     'start_date' => $startDate->toIso8601String(),
                     'end_date' => $endDate->toIso8601String(),
                 ],
                 'payer_email' => $request->email,
-                'back_url' => $request->metadata['back_url'] ?? null,
-                'status' => 'pending',
-            ]);
+                'card_token_id' => $request->cardToken,
+                'back_url' => $request->successUrl ?? $request->metadata['back_url'] ?? null,
+                'status' => $request->cardToken === null ? 'pending' : 'authorized',
+            ], fn (mixed $value): bool => $value !== null));
 
-            return new SubscriptionResponse(
-                success: true,
-                subscriptionId: $preapproval->id,
-                status: $preapproval->status,
-                planId: $request->planId,
-                nextBillingDate: $preapproval->auto_recurring?->start_date ?? null,
-                raw: json_decode(json_encode($preapproval), true)
-            );
+            return $this->toSubscriptionResponse($preapproval, $request->planId);
         });
     }
 
@@ -291,28 +291,39 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         $this->throttle('mercadopago_checkout:get_subscription');
 
         return $this->retry(function () use ($subscriptionId) {
-            $client = new PreApprovalClient();
-            $preapproval = $client->get($subscriptionId);
+            $preapproval = (new PreApprovalClient())->get($subscriptionId);
 
-            return new SubscriptionResponse(
-                success: true,
-                subscriptionId: $preapproval->id,
-                status: $preapproval->status,
-                planId: $preapproval->reason ?? null,
-                nextBillingDate: $preapproval->auto_recurring?->start_date ?? null,
-                raw: json_decode(json_encode($preapproval), true)
-            );
+            return $this->toSubscriptionResponse($preapproval, $preapproval->reason ?? null);
         });
     }
 
-    protected function mapInterval(string $interval): string
+    protected function toSubscriptionResponse(object $preapproval, ?string $planId): SubscriptionResponse
+    {
+        return new SubscriptionResponse(
+            success: true,
+            subscriptionId: $preapproval->id,
+            status: $preapproval->status,
+            planId: $planId,
+            nextBillingDate: $preapproval->next_payment_date ?? $preapproval->auto_recurring?->start_date ?? null,
+            raw: json_decode(json_encode($preapproval), true),
+            redirectUrl: $preapproval->init_point ?? null,
+            externalReference: $preapproval->external_reference ?? null,
+        );
+    }
+
+    /**
+     * El preapproval solo cobra cada tantos días o meses; una semana son
+     * siete días y un año, doce meses.
+     *
+     * @return array{0: int, 1: string}
+     */
+    protected function frequencyOf(string $interval, int $count): array
     {
         return match ($interval) {
-            'day' => 'days',
-            'week' => 'weeks',
-            'month' => 'months',
-            'year' => 'years',
-            default => 'months',
+            'day' => [$count, 'days'],
+            'week' => [$count * 7, 'days'],
+            'year' => [$count * 12, 'months'],
+            default => [$count, 'months'],
         };
     }
 

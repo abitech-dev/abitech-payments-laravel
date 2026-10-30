@@ -6,6 +6,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Agregado
+
+- `SubscriptionRequest` acepta `externalReference`, `successUrl` y
+  `cancelUrl`, y `SubscriptionResponse` devuelve `redirectUrl` y
+  `externalReference`.
+- `createSubscription()` de Stripe Checkout abre una sesión en modo
+  `subscription` cuando recibe `successUrl` y `cancelUrl`, con el trial en
+  `subscription_data` y la referencia en `client_reference_id`.
+  `getSubscription()` acepta esa sesión `cs_`: devuelve la suscripción que
+  creó, o `incomplete` mientras sigue abierta e `incomplete_expired` al vencer.
+
+### Corregido
+
+- El preapproval de Mercado Pago envía `external_reference`, el `back_url`
+  de `successUrl`, `card_token_id` con `status=authorized` cuando hay
+  tarjeta y el primer débito al fin del trial (`start_date`). Devuelve
+  `init_point` como `redirectUrl`.
+- El preapproval envía la semana como 7 días y el año como 12 meses, porque
+  Mercado Pago solo admite `days` y `months`.
+
 ## [3.0.1] - 2026-10-28
 
 ### Corregido
