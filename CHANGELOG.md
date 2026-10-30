@@ -25,6 +25,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - `updateSubscription()` de Stripe con `amount` cambia el precio del ítem
   sin prorrateo, y sin `metadata` ya no la vacía. El de Mercado Pago
   devuelve el preapproval completo tras el PUT.
+- El paquete exige `mercadopago/dx-php` 3.0.5 o superior. Antes de esa
+  versión `external_reference` de los cobros es entero y una referencia
+  UUID rompe la lectura.
 
 ## [3.1.0] - 2026-10-29
 
