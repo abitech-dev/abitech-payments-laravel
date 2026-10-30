@@ -154,6 +154,24 @@ $response = $manager->driver('mercadopago_checkout')->createSubscription(new Sub
 ));
 ```
 
+`updateSubscription()` con `amount` hace PUT de `auto_recurring.transaction_amount`
+y devuelve el preapproval con su `amount` y su `nextBillingDate`.
+
+### Cobros del preapproval
+
+El driver también implementa `SubscriptionChargesInterface` sobre
+`/authorized_payments`:
+
+| Método | Llamada | Devuelve |
+| --- | --- | --- |
+| `subscriptionCharges($preapprovalId)` | `GET /authorized_payments/search?preapproval_id=` | Los cobros del más reciente al más antiguo, sin el detalle del pago |
+| `findSubscriptionCharge($id)` | `GET /authorized_payments/{id}` y `GET /v1/payments/{payment.id}` | El cobro con su pago en `payment`, o `null` si no existe |
+
+`status` sale del pago (`completed`, `pending`, `failed` o `refunded`); sin
+pago es `scheduled`, o `canceled` si el cobro se canceló. `debitDate` va en
+UTC. El aviso `subscription_authorized_payment` trae el id del cobro en
+`WebhookResult::$transactionId`.
+
 ## SDK
 
 Documentacion oficial del SDK: https://github.com/mercadopago/dx-php

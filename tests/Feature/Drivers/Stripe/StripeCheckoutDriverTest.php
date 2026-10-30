@@ -437,7 +437,7 @@ class StripeCheckoutDriverTest extends TestCase
             'health' => [static fn (StripeCheckoutDriver $driver) => $driver->health(), [['object' => 'balance']]],
             'createSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->createSubscription(self::subscription()), [self::customer(), self::price(), self::subscriptionObject()]],
             'cancelSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->cancelSubscription('sub_1'), [self::subscriptionObject()]],
-            'updateSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->updateSubscription('sub_1', self::subscription()), [self::subscriptionObject()]],
+            'updateSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->updateSubscription('sub_1', self::subscription()), [self::subscriptionObject(), self::subscriptionObject()]],
             'getSubscription' => [static fn (StripeCheckoutDriver $driver) => $driver->getSubscription('sub_1'), [self::subscriptionObject()]],
             'findPayment' => [static fn (StripeCheckoutDriver $driver) => $driver->findPayment('cs_1'), [self::sessionWith('complete', 'paid', 'succeeded')]],
         ];
@@ -675,7 +675,13 @@ class StripeCheckoutDriverTest extends TestCase
             'status' => 'active',
             'items' => [
                 'object' => 'list',
-                'data' => [['id' => 'si_1', 'object' => 'subscription_item', 'current_period_end' => 1767225600]],
+                'data' => [[
+                    'id' => 'si_1',
+                    'object' => 'subscription_item',
+                    'quantity' => 1,
+                    'current_period_end' => 1767225600,
+                    'price' => ['id' => 'price_1', 'object' => 'price', 'currency' => 'usd', 'product' => 'prod_1', 'unit_amount' => 4990, 'recurring' => ['interval' => 'month', 'interval_count' => 1]],
+                ]],
             ],
         ];
     }

@@ -6,6 +6,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+### Agregado
+
+- `SubscriptionChargesInterface` con `subscriptionCharges()` y
+  `findSubscriptionCharge()`, y el DTO `SubscriptionCharge`. Mercado Pago
+  lee los `authorized_payments` del preapproval y el pago de cada uno; Stripe
+  Checkout, las facturas `in_` de la suscripción y su PaymentIntent.
+  `FakePaymentDriver` también la implementa.
+- `SubscriptionResponse` devuelve `amount` y `currency`, el monto de cada
+  periodo.
+- Stripe Checkout normaliza los avisos `invoice.paid` e
+  `invoice.payment_failed` con el id de la factura y `status = unknown`.
+
+### Cambiado
+
+- `updateSubscription()` de Stripe con `amount` cambia el precio del ítem
+  sin prorrateo, y sin `metadata` ya no la vacía. El de Mercado Pago
+  devuelve el preapproval completo tras el PUT.
+
 ## [3.1.0] - 2026-10-29
 
 ### Agregado

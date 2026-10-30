@@ -7,6 +7,7 @@ namespace Abitech\Payments\Drivers\Stripe;
 use Illuminate\Http\Request;
 use Abitech\Payments\Concerns\ConvertsStripeAmounts;
 use Abitech\Payments\Concerns\ReadsStripeCards;
+use Abitech\Payments\Contracts\SubscriptionChargesInterface;
 use Abitech\Payments\Contracts\SubscriptionInterface;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\VerifiesWebhookSignature;
@@ -14,18 +15,26 @@ use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
+use Abitech\Payments\DTO\SubscriptionCharge;
 use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Illuminate\Support\Carbon;
 use Stripe\Checkout\Session;
+use Stripe\Invoice;
 use Stripe\StripeClient;
 use Stripe\Subscription;
 
-class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
+class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionChargesInterface, SubscriptionInterface
 {
     use ConvertsStripeAmounts, ReadsStripeCards, VerifiesWebhookSignature;
+
+    /** Facturas por consulta; una suscripción mensual llena dos años. */
+    private const CHARGES_PAGE = 24;
+
+    /** Avisos de la factura de un periodo; el host consulta la factura. */
+    private const INVOICE_EVENTS = ['invoice.paid', 'invoice.payment_failed'];
 
     /** @var string[] Divisas soportadas por Stripe. */
     protected array $supportedCurrencies = [
@@ -207,6 +216,10 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
 
         $type = $event['type'] ?? 'unknown';
         $object = $event['data']['object'] ?? [];
+
+        if (in_array($type, self::INVOICE_EVENTS, true)) {
+            return new WebhookResult(gateway: 'stripe', eventType: $type, transactionId: $object['id'] ?? null, status: 'unknown', raw: $event);
+        }
 
         $transactionId = null;
         $status = null;
@@ -463,17 +476,161 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
         return $this->retry(function () use ($subscriptionId, $request) {
             $payload = ['metadata' => $request->metadata];
 
-            $subscription = $this->client->subscriptions->update($subscriptionId, $payload);
+            if ($request->amount !== null) {
+                $payload = [...$payload, ...$this->amountChangeOf($this->client->subscriptions->retrieve($subscriptionId), $request->amount)];
+            }
 
-            return new SubscriptionResponse(
-                success: true,
-                subscriptionId: $subscription->id,
-                status: $subscription->status,
-                planId: $request->planId,
-                nextBillingDate: $this->nextBillingDateOf($subscription),
-                raw: $subscription->toArray()
-            );
+            $subscription = $this->client->subscriptions->update($subscriptionId, array_filter($payload));
+
+            return $this->toSubscriptionResponse($subscription, $request->planId);
         });
+    }
+
+    /**
+     * El monto del periodo cambia con un precio nuevo en el ítem, sin
+     * prorrateo, como el PUT de `transaction_amount` del preapproval.
+     *
+     * @return array<string, mixed>
+     */
+    protected function amountChangeOf(Subscription $subscription, string $amount): array
+    {
+        $item = $subscription->items->data[0];
+        $price = $item->price;
+
+        return [
+            'proration_behavior' => 'none',
+            'items' => [[
+                'id' => $item->id,
+                'price_data' => [
+                    'currency' => $price->currency,
+                    'product' => is_string($price->product) ? $price->product : $price->product->id,
+                    'unit_amount' => $this->toStripeAmount($amount, $price->currency),
+                    'recurring' => [
+                        'interval' => $price->recurring->interval,
+                        'interval_count' => $price->recurring->interval_count,
+                    ],
+                ],
+            ]],
+        ];
+    }
+
+    protected function toSubscriptionResponse(Subscription $subscription, ?string $planId = null): SubscriptionResponse
+    {
+        $item = $subscription->items->data[0] ?? null;
+        $price = $item?->price;
+        $currency = $price?->currency;
+
+        return new SubscriptionResponse(
+            success: true,
+            subscriptionId: $subscription->id,
+            status: $subscription->status,
+            planId: $planId,
+            nextBillingDate: $this->nextBillingDateOf($subscription),
+            raw: $subscription->toArray(),
+            amount: $price?->unit_amount === null ? null : $this->fromStripeAmount($price->unit_amount * ($item->quantity ?? 1), $currency),
+            currency: $currency === null ? null : strtoupper($currency),
+        );
+    }
+
+    public function subscriptionCharges(string $subscriptionId): array
+    {
+        $this->authenticate();
+        $this->throttle('stripe_checkout:subscription_charges');
+
+        $invoices = $this->retry(fn () => $this->client->invoices->all([
+            'subscription' => $subscriptionId,
+            'limit' => self::CHARGES_PAGE,
+            'expand' => ['data.payments'],
+        ]));
+
+        return collect($invoices->data)
+            ->map(fn (Invoice $invoice): SubscriptionCharge => $this->toSubscriptionCharge($invoice->toArray(), null))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * La factura `in_` y el PaymentIntent que la pagó, con su cargo.
+     */
+    public function findSubscriptionCharge(string $chargeId): ?SubscriptionCharge
+    {
+        $this->authenticate();
+        $this->throttle('stripe_checkout:find_subscription_charge');
+
+        $invoice = $this->findWithRetry(fn () => $this->client->invoices->retrieve($chargeId, ['expand' => ['payments']]));
+
+        if ($invoice === null) {
+            return null;
+        }
+
+        $invoice = $invoice->toArray();
+        $paymentIntentId = $this->paymentIntentOf($invoice);
+
+        return $this->toSubscriptionCharge($invoice, $paymentIntentId === null ? null : $this->paymentIntentResult($paymentIntentId));
+    }
+
+    protected function paymentIntentResult(string $paymentIntentId): WebhookResult
+    {
+        $intent = $this->retry(fn () => $this->client->paymentIntents->retrieve($paymentIntentId, ['expand' => ['latest_charge']]))->toArray();
+        $card = $this->paymentMethodFromStripeCharge($intent['latest_charge'] ?? null);
+
+        return new WebhookResult(
+            gateway: 'stripe',
+            eventType: 'payment_intent',
+            transactionId: $intent['id'],
+            status: $this->mapPaymentIntentStatus($intent['status'] ?? ''),
+            amount: $this->fromStripeAmount($intent['amount'] ?? null, $intent['currency'] ?? null),
+            currency: $intent['currency'] ?? null,
+            paymentMethod: $card['payment_method'] ?? null,
+            cardBrand: $card['brand'] ?? null,
+            cardLastFour: $card['last_four'] ?? null,
+            raw: $intent,
+        );
+    }
+
+    /**
+     * Una factura abierta ya intentada quedó rechazada; Stripe la reintenta
+     * según su calendario.
+     *
+     * @param  array<string, mixed>  $invoice
+     */
+    protected function toSubscriptionCharge(array $invoice, ?WebhookResult $payment): SubscriptionCharge
+    {
+        $currency = $invoice['currency'] ?? null;
+        $isPaid = ($invoice['status'] ?? null) === 'paid';
+
+        return new SubscriptionCharge(
+            chargeId: $invoice['id'],
+            subscriptionId: $invoice['parent']['subscription_details']['subscription'] ?? null,
+            status: match ($invoice['status'] ?? null) {
+                'paid' => 'completed',
+                'void' => 'canceled',
+                'uncollectible' => 'failed',
+                'open' => ($invoice['attempted'] ?? false) ? 'failed' : 'scheduled',
+                default => 'scheduled',
+            },
+            amount: $this->fromStripeAmount($isPaid ? ($invoice['amount_paid'] ?? null) : ($invoice['amount_due'] ?? null), $currency),
+            currency: $currency === null ? null : strtoupper($currency),
+            debitDate: isset($invoice['period_end']) ? Carbon::createFromTimestampUTC($invoice['period_end'])->toIso8601String() : null,
+            paymentId: $this->paymentIntentOf($invoice),
+            payment: $payment,
+            retryAttempt: isset($invoice['attempt_count']) ? max(0, $invoice['attempt_count'] - 1) : null,
+            raw: $invoice,
+        );
+    }
+
+    /**
+     * El PaymentIntent pagado de la factura o, si no hay, el último intentado.
+     *
+     * @param  array<string, mixed>  $invoice
+     */
+    protected function paymentIntentOf(array $invoice): ?string
+    {
+        $payments = collect($invoice['payments']['data'] ?? [])
+            ->filter(fn (array $payment): bool => ($payment['payment']['type'] ?? null) === 'payment_intent');
+        $intent = ($payments->firstWhere('status', 'paid') ?? $payments->first())['payment']['payment_intent'] ?? null;
+
+        return is_array($intent) ? $intent['id'] : $intent;
     }
 
     /**
@@ -491,17 +648,7 @@ class StripeCheckoutDriver extends AbstractPaymentDriver implements Subscription
             ));
         }
 
-        return $this->retry(function () use ($subscriptionId) {
-            $subscription = $this->client->subscriptions->retrieve($subscriptionId);
-
-            return new SubscriptionResponse(
-                success: true,
-                subscriptionId: $subscription->id,
-                status: $subscription->status,
-                nextBillingDate: $this->nextBillingDateOf($subscription),
-                raw: $subscription->toArray()
-            );
-        });
+        return $this->retry(fn () => $this->toSubscriptionResponse($this->client->subscriptions->retrieve($subscriptionId)));
     }
 
     protected function createSubscriptionCheckout(SubscriptionRequest $request): SubscriptionResponse
