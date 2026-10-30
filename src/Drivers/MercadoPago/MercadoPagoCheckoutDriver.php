@@ -35,8 +35,8 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 
-    /** Cobros por consulta; una suscripción mensual llena dos años. */
-    private const CHARGES_PAGE = 24;
+    /** Cobros por página; la búsqueda rechaza un `limit` de 20 o más. */
+    private const CHARGES_PAGE = 12;
 
     /** Clase cuya ausencia indica que falta el SDK. */
     protected const SDK_CLASS = MercadoPagoConfig::class;
@@ -322,11 +322,19 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         $this->authenticate();
         $this->throttle('mercadopago_checkout:subscription_charges');
 
-        $search = $this->retry(fn () => (new InvoiceClient())->search(new MPSearchRequest(self::CHARGES_PAGE, 0, [
-            'preapproval_id' => $subscriptionId,
-        ])));
+        $charges = [];
+        $offset = 0;
 
-        return collect(json_decode(json_encode($search->results ?? []), true))
+        do {
+            $search = $this->retry(fn () => (new InvoiceClient())->search(new MPSearchRequest(self::CHARGES_PAGE, $offset, [
+                'preapproval_id' => $subscriptionId,
+            ])));
+            $page = json_decode(json_encode($search->results ?? []), true);
+            $charges = [...$charges, ...$page];
+            $offset += self::CHARGES_PAGE;
+        } while ($page !== [] && $offset < (int) ($search->paging->total ?? 0));
+
+        return collect($charges)
             ->map(fn (array $charge): SubscriptionCharge => $this->toSubscriptionCharge($charge, null))
             ->sortByDesc(fn (SubscriptionCharge $charge): string => (string) $charge->debitDate)
             ->values()

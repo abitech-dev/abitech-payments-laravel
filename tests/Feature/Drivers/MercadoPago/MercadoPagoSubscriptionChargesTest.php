@@ -53,6 +53,8 @@ class MercadoPagoSubscriptionChargesTest extends TestCase
         $this->assertSame('GET', $mercadoPago->requests[0]->getMethod());
         $this->assertStringContainsString('/authorized_payments/search', $mercadoPago->requests[0]->getUri());
         $this->assertStringContainsString('preapproval_id=pre_1', $mercadoPago->requests[0]->getUri());
+        $this->assertStringContainsString('limit=12', $mercadoPago->requests[0]->getUri());
+        $this->assertCount(1, $mercadoPago->requests);
         $this->assertSame(['7002', '7001'], array_map(fn (SubscriptionCharge $charge): string => $charge->chargeId, $charges));
         $this->assertSame('scheduled', $charges[0]->status);
         $this->assertNull($charges[0]->paymentId);
@@ -63,6 +65,21 @@ class MercadoPagoSubscriptionChargesTest extends TestCase
         $this->assertSame('PEN', $charges[1]->currency);
         $this->assertSame('2026-10-29T19:00:00+00:00', $charges[1]->debitDate);
         $this->assertNull($charges[1]->payment);
+    }
+
+    public function test_subscription_charges_read_every_page_of_twelve(): void
+    {
+        $first = array_map(fn (int $month): array => self::authorizedPayment(7000 + $month, sprintf('2025-%02d-29T15:00:00.000-04:00', $month), 'processed', ['id' => 9000 + $month, 'status' => 'approved']), range(1, 12));
+        $mercadoPago = FakeMercadoPagoHttpClient::install([
+            [200, ['paging' => ['total' => 13, 'limit' => 12, 'offset' => 0], 'results' => $first]],
+            [200, ['paging' => ['total' => 13, 'limit' => 12, 'offset' => 12], 'results' => [self::authorizedPayment(7013, '2026-01-29T15:00:00.000-04:00', 'scheduled', null)]]],
+        ]);
+
+        $charges = $this->driver()->subscriptionCharges('pre_1');
+
+        $this->assertCount(13, $charges);
+        $this->assertSame('7013', $charges[0]->chargeId);
+        $this->assertStringContainsString('offset=12', $mercadoPago->requests[1]->getUri());
     }
 
     /**
