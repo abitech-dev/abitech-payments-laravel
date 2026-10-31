@@ -160,7 +160,28 @@ $response = $manager->driver('stripe_checkout')->createSubscription(new Subscrip
 ```
 
 `nextBillingDate` sale del `current_period_end` del primer ítem de la
-suscripción, donde lo deja la API `2025-03-31.basil` desde stripe-php 17.
+suscripción, donde lo deja la API `2025-03-31.basil` desde stripe-php 17,
+y `amount` es el precio del primer ítem por su cantidad.
+
+`updateSubscription()` con `amount` cambia el precio del primer ítem por un
+`price_data` del mismo producto y ciclo, con `proration_behavior=none`, así
+que rige desde la próxima factura.
+
+### Cobros de la suscripción
+
+El driver también implementa `SubscriptionChargesInterface` sobre las
+facturas `in_` de la suscripción:
+
+| Método | Llamada | Devuelve |
+| --- | --- | --- |
+| `subscriptionCharges($subscriptionId)` | `GET /v1/invoices?subscription=` con `data.payments` | Las facturas de la más reciente a la más antigua |
+| `findSubscriptionCharge($invoiceId)` | `GET /v1/invoices/{id}` y `GET /v1/payment_intents/{id}` con `latest_charge` | La factura con su PaymentIntent en `payment`, o `null` si no existe |
+
+`status` es `completed` si está pagada, `failed` si está abierta tras un
+intento o es incobrable, `canceled` si se anuló y `scheduled` en otro caso.
+`debitDate` es el `period_end` de la factura, el inicio del periodo que cobra.
+Los avisos `invoice.paid` e `invoice.payment_failed` traen el id de la
+factura en `WebhookResult::$transactionId` con `status = unknown`.
 
 ### Configurar endpoint en Stripe Dashboard
 

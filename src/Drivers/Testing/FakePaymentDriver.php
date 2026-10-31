@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Abitech\Payments\Drivers\Testing;
 
+use Abitech\Payments\Contracts\SubscriptionChargesInterface;
 use Abitech\Payments\Contracts\SubscriptionInterface;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
+use Abitech\Payments\DTO\SubscriptionCharge;
 use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
 use Abitech\Payments\DTO\WebhookResult;
@@ -33,7 +35,7 @@ use RuntimeException;
  *   $fake->assertCalledCount('purchase', 1);
  *   $fake->assertNotCalled('refund');
  */
-class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInterface
+class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionChargesInterface, SubscriptionInterface
 {
     protected array $supportedCurrencies = ['USD', 'EUR', 'PEN'];
 
@@ -281,6 +283,22 @@ class FakePaymentDriver extends AbstractPaymentDriver implements SubscriptionInt
             nextBillingDate: Carbon::now()->addMonth()->toIso8601String(),
             raw: ['test' => true]
         ));
+    }
+
+    public function subscriptionCharges(string $subscriptionId): array
+    {
+        $this->recordCall('subscriptionCharges', [$subscriptionId]);
+        $this->guardThrow();
+
+        return $this->getResponse('subscriptionCharges', []);
+    }
+
+    public function findSubscriptionCharge(string $chargeId): ?SubscriptionCharge
+    {
+        $this->recordCall('findSubscriptionCharge', [$chargeId]);
+        $this->guardThrow();
+
+        return $this->getResponse('findSubscriptionCharge', null);
     }
 
     // ─── Internos ────────────────────────────────────────────────────────

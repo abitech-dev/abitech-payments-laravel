@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abitech\Payments\Drivers\MercadoPago;
 
+use Abitech\Payments\Contracts\SubscriptionChargesInterface;
 use Abitech\Payments\Contracts\SubscriptionInterface;
 use Abitech\Payments\Drivers\AbstractPaymentDriver;
 use Abitech\Payments\Concerns\HandlesMercadoPagoPaymentLookup;
@@ -13,22 +14,29 @@ use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
 use Abitech\Payments\DTO\PayoutResponse;
+use Abitech\Payments\DTO\SubscriptionCharge;
 use Abitech\Payments\DTO\SubscriptionRequest;
 use Abitech\Payments\DTO\SubscriptionResponse;
+use Abitech\Payments\DTO\WebhookResult;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use MercadoPago\MercadoPagoConfig;
+use MercadoPago\Client\Invoice\InvoiceClient;
 use MercadoPago\Client\Preference\PreferenceClient;
 use MercadoPago\Client\Payment\PaymentClient;
 use MercadoPago\Client\PreApproval\PreApprovalClient;
+use MercadoPago\Net\MPSearchRequest;
 
-class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements SubscriptionInterface
+class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements SubscriptionChargesInterface, SubscriptionInterface
 {
     use HandlesMercadoPagoWebhook, HandlesMercadoPagoRefund, HandlesMercadoPagoPaymentLookup;
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
+
+    /** Cobros por página; la búsqueda rechaza un `limit` de 20 o más. */
+    private const CHARGES_PAGE = 12;
 
     /** Clase cuya ausencia indica que falta el SDK. */
     protected const SDK_CLASS = MercadoPagoConfig::class;
@@ -275,13 +283,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
                 $preapproval = $client->get($subscriptionId);
             }
 
-            return new SubscriptionResponse(
-                success: true,
-                subscriptionId: $preapproval->id,
-                status: $preapproval->status,
-                planId: $request->planId,
-                raw: json_decode(json_encode($preapproval), true)
-            );
+            return $this->toSubscriptionResponse($preapproval, $request->planId);
         });
     }
 
@@ -299,15 +301,93 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
 
     protected function toSubscriptionResponse(object $preapproval, ?string $planId): SubscriptionResponse
     {
+        $raw = json_decode(json_encode($preapproval), true);
+
         return new SubscriptionResponse(
             success: true,
             subscriptionId: $preapproval->id,
             status: $preapproval->status,
             planId: $planId,
             nextBillingDate: $preapproval->next_payment_date ?? $preapproval->auto_recurring?->start_date ?? null,
-            raw: json_decode(json_encode($preapproval), true),
+            raw: $raw,
             redirectUrl: $preapproval->init_point ?? null,
             externalReference: $preapproval->external_reference ?? null,
+            amount: $this->fromMercadoPagoAmount($raw['auto_recurring']['transaction_amount'] ?? null),
+            currency: $raw['auto_recurring']['currency_id'] ?? null,
+        );
+    }
+
+    public function subscriptionCharges(string $subscriptionId): array
+    {
+        $this->authenticate();
+        $this->throttle('mercadopago_checkout:subscription_charges');
+
+        $charges = [];
+        $offset = 0;
+
+        do {
+            $search = $this->retry(fn () => (new InvoiceClient())->search(new MPSearchRequest(self::CHARGES_PAGE, $offset, [
+                'preapproval_id' => $subscriptionId,
+            ])));
+            $page = json_decode(json_encode($search->results ?? []), true);
+            $charges = [...$charges, ...$page];
+            $offset += self::CHARGES_PAGE;
+        } while ($page !== [] && $offset < (int) ($search->paging->total ?? 0));
+
+        return collect($charges)
+            ->map(fn (array $charge): SubscriptionCharge => $this->toSubscriptionCharge($charge, null))
+            ->sortByDesc(fn (SubscriptionCharge $charge): string => (string) $charge->debitDate)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * El `authorized_payment` y luego el pago que lo liquida, como pide el
+     * aviso `subscription_authorized_payment`.
+     */
+    public function findSubscriptionCharge(string $chargeId): ?SubscriptionCharge
+    {
+        if (! ctype_digit($chargeId)) {
+            throw new PaymentGatewayException("El id de un cobro de Mercado Pago es numérico.", 422);
+        }
+
+        $this->authenticate();
+        $this->throttle('mercadopago_checkout:find_subscription_charge');
+
+        $charge = $this->findWithRetry(fn () => json_decode(json_encode((new InvoiceClient())->get((int) $chargeId)), true));
+
+        if ($charge === null) {
+            return null;
+        }
+
+        $paymentId = $charge['payment']['id'] ?? null;
+        $payment = $paymentId === null ? null : $this->retry(fn () => json_decode(json_encode((new PaymentClient())->get((int) $paymentId)), true));
+
+        return $this->toSubscriptionCharge($charge, $payment === null ? null : $this->toMercadoPagoResult('payment', $payment));
+    }
+
+    /**
+     * @param  array<string, mixed>  $charge
+     */
+    private function toSubscriptionCharge(array $charge, ?WebhookResult $payment): SubscriptionCharge
+    {
+        $paymentStatus = $charge['payment']['status'] ?? null;
+
+        return new SubscriptionCharge(
+            chargeId: (string) $charge['id'],
+            subscriptionId: $charge['preapproval_id'] ?? null,
+            status: match (true) {
+                is_string($paymentStatus) => $this->mapMercadoPagoStatus($paymentStatus),
+                ($charge['status'] ?? null) === 'cancelled' => 'canceled',
+                default => 'scheduled',
+            },
+            amount: $this->fromMercadoPagoAmount($charge['transaction_amount'] ?? null),
+            currency: $charge['currency_id'] ?? null,
+            debitDate: isset($charge['debit_date']) ? Carbon::parse($charge['debit_date'])->utc()->toIso8601String() : null,
+            paymentId: isset($charge['payment']['id']) ? (string) $charge['payment']['id'] : null,
+            payment: $payment,
+            retryAttempt: $charge['retry_attempt'] ?? null,
+            raw: $charge,
         );
     }
 

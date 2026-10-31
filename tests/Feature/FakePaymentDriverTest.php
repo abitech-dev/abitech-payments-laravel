@@ -7,6 +7,7 @@ namespace Abitech\Payments\Tests\Feature;
 use Abitech\Payments\DTO\PaymentRequest;
 use Abitech\Payments\DTO\PaymentResponse;
 use Abitech\Payments\DTO\PayoutRequest;
+use Abitech\Payments\DTO\SubscriptionCharge;
 use Abitech\Payments\Drivers\Testing\FakePaymentDriver;
 use Abitech\Payments\Exceptions\PaymentGatewayException;
 use Abitech\Payments\Tests\TestCase;
@@ -269,5 +270,23 @@ class FakePaymentDriverTest extends TestCase
         } catch (PaymentGatewayException $exception) {
             $this->assertSame(503, $exception->getCode());
         }
+    }
+
+    public function test_subscription_charges_are_empty_by_default_and_can_be_configured(): void
+    {
+        $this->assertSame([], $this->fake->subscriptionCharges('sub-1'));
+
+        $charge = new SubscriptionCharge(chargeId: 'charge-1', subscriptionId: 'sub-1', status: 'completed', paymentId: 'txn-1');
+        $this->fake->shouldReturn('subscriptionCharges', [$charge]);
+        $this->fake->shouldReturn('findSubscriptionCharge', $charge);
+
+        $this->assertSame([$charge], $this->fake->subscriptionCharges('sub-1'));
+        $this->assertSame($charge, $this->fake->findSubscriptionCharge('charge-1'));
+        $this->fake->assertCalled('findSubscriptionCharge', fn (string $chargeId): bool => $chargeId === 'charge-1');
+    }
+
+    public function test_an_unknown_subscription_charge_is_null_by_default(): void
+    {
+        $this->assertNull($this->fake->findSubscriptionCharge('charge-9'));
     }
 }

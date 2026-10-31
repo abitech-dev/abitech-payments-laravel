@@ -6,6 +6,29 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+## [3.2.0] - 2026-10-30
+
+### Agregado
+
+- `SubscriptionChargesInterface` con `subscriptionCharges()` y
+  `findSubscriptionCharge()`, y el DTO `SubscriptionCharge`. Mercado Pago
+  lee los `authorized_payments` del preapproval y el pago de cada uno; Stripe
+  Checkout, las facturas `in_` de la suscripción y su PaymentIntent.
+  `FakePaymentDriver` también la implementa.
+- `SubscriptionResponse` devuelve `amount` y `currency`, el monto de cada
+  periodo.
+- Stripe Checkout normaliza los avisos `invoice.paid` e
+  `invoice.payment_failed` con el id de la factura y `status = unknown`.
+
+### Cambiado
+
+- `updateSubscription()` de Stripe con `amount` cambia el precio del ítem
+  sin prorrateo, y sin `metadata` ya no la vacía. El de Mercado Pago
+  devuelve el preapproval completo tras el PUT.
+- El paquete exige `mercadopago/dx-php` 3.0.5 o superior. Antes de esa
+  versión `external_reference` de los cobros es entero y una referencia
+  UUID rompe la lectura.
+
 ## [3.1.0] - 2026-10-29
 
 ### Agregado
@@ -219,6 +242,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 - Eliminado `minimum-stability: dev` de composer.json
 - Corregidas restricciones de version de PHP/illuminate
 
+[3.2.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.2.0
 [3.1.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.1.0
 [3.0.1]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.0.1
 [3.0.0]: https://github.com/abitech-dev/abitech-payments-laravel/releases/tag/v3.0.0
