@@ -31,3 +31,19 @@ solo, qué hace.
    con plurales naturales y sin abreviaturas crípticas.
 4. **Sin tartamudeo.** El nombre no repite el contexto que ya da su
    clase o módulo.
+5. **Repositorios.** `[empresa]-[producto]-[componente]` en kebab-case
+   (minúsculas, dígitos y guiones medios), con un solo sufijo al final:
+   `-web` (cliente), `-panel` (backoffice), `-mobile`, `-ui` (librería
+   de componentes), `-api`, `-worker` (colas y cron), `-ws`, `-app`
+   (monolito), `-collection` (Bruno o Postman), `-e2e`, `-auth`,
+   `-payments`, `-notifications`, `-iac`, `-k8s`, `-docs`, `-cli`
+   (herramienta de línea de comandos y sus librerías) y `-sdk` (librería
+   que usan otros programas). Una librería para un framework lleva el
+   framework como sufijo (`-laravel`, `-vue`).
+   - Mal: `Arsy_CoworkerAPI`, `good-money-api-collection`, `openchasqui-lib`.
+   - Bien: `arsy-coworker-api`, `good-money-collection`,
+     `abitech-openchasqui-cli`, `abitech-antibot-laravel`.
+6. **Paquetes publicados.** La marca va en el scope o vendor, igual en
+   todos los registros, y el producto en el nombre:
+   `@abitechdev/openchasqui-core` en npm, `abitechdev/antibot-laravel` en
+   Composer.
