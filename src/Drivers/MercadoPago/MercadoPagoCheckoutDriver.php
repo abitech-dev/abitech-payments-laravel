@@ -31,7 +31,9 @@ use MercadoPago\Net\MPSearchRequest;
 
 class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements SubscriptionChargesInterface, SubscriptionInterface
 {
-    use HandlesMercadoPagoWebhook, HandlesMercadoPagoRefund, HandlesMercadoPagoPaymentLookup;
+    use HandlesMercadoPagoWebhook;
+    use HandlesMercadoPagoRefund;
+    use HandlesMercadoPagoPaymentLookup;
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 

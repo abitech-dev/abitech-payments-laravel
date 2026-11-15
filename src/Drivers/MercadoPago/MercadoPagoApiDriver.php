@@ -19,7 +19,9 @@ use MercadoPago\Client\Payment\PaymentClient;
 
 class MercadoPagoApiDriver extends AbstractPaymentDriver
 {
-    use HandlesMercadoPagoWebhook, HandlesMercadoPagoRefund, HandlesMercadoPagoPaymentLookup;
+    use HandlesMercadoPagoWebhook;
+    use HandlesMercadoPagoRefund;
+    use HandlesMercadoPagoPaymentLookup;
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 

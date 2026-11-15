@@ -11,5 +11,6 @@ class WebhookReceived
     public function __construct(
         public readonly WebhookResult $result,
         public readonly array $rawPayload = []
-    ) {}
+    ) {
+    }
 }

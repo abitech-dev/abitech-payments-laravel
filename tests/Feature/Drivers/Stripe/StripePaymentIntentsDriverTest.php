@@ -160,7 +160,7 @@ class StripePaymentIntentsDriverTest extends TestCase
     public function test_a_missing_sdk_asks_for_the_exact_composer_require(): void
     {
         $transport = FakeStripeHttpClient::install([]);
-        $driver = new class(['secret' => 'sk_test_x']) extends StripePaymentIntentsDriver {
+        $driver = new class (['secret' => 'sk_test_x']) extends StripePaymentIntentsDriver {
             protected const SDK_CLASS = 'Stripe\\ClaseAusente';
         };
 

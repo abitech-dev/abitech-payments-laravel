@@ -7,7 +7,6 @@ namespace Abitech\Payments\Exceptions;
 use Exception;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class PaymentGatewayException extends Exception implements Responsable
 {

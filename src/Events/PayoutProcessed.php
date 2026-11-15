@@ -12,5 +12,6 @@ class PayoutProcessed
         public readonly PayoutResponse $response,
         public readonly string $gateway,
         public readonly array $context = []
-    ) {}
+    ) {
+    }
 }

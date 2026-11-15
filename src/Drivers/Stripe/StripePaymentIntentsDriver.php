@@ -19,7 +19,9 @@ use Stripe\StripeClient;
 
 class StripePaymentIntentsDriver extends AbstractPaymentDriver
 {
-    use ConvertsStripeAmounts, ReadsStripeCards, VerifiesWebhookSignature;
+    use ConvertsStripeAmounts;
+    use ReadsStripeCards;
+    use VerifiesWebhookSignature;
 
     protected array $supportedCurrencies = [
         'USD', 'EUR', 'GBP', 'PEN', 'MXN', 'BRL', 'ARS', 'CLP', 'COP',
