@@ -11,5 +11,6 @@ class PaymentFailed
         public readonly string $errorMessage,
         public readonly int $statusCode,
         public readonly array $context = []
-    ) {}
+    ) {
+    }
 }

@@ -11,5 +11,6 @@ class RefundProcessed
         public readonly string $transactionId,
         public readonly ?string $amount = null,
         public readonly array $context = []
-    ) {}
+    ) {
+    }
 }

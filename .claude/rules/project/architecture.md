@@ -6,7 +6,7 @@ paths:
   - "composer.json"
 ---
 
-# Arquitectura (abitech/payments-laravel)
+# Arquitectura (abitechdev/payments-laravel)
 
 DIRECTIVA: `PaymentManager` resuelve un driver por slug (Strategy +
 Factory) y cada driver traduce DTO a la API de una pasarela, como

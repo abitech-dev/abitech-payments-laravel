@@ -1,10 +1,16 @@
 # Changelog
 
-Todas las versiones notables de `abitech/payments-laravel` estan documentadas aqui.
+Todas las versiones notables de `abitechdev/payments-laravel` están documentadas aquí.
 
 El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Sin publicar]
+
+### Cambiado
+
+- El paquete se publica en Packagist como `abitechdev/payments-laravel`.
+  Quien lo instalaba como `abitech/payments-laravel` desde GitHub cambia el
+  nombre en su `composer.json` y puede quitar el repositorio `vcs`.
 
 ## [3.2.0] - 2026-10-30
 

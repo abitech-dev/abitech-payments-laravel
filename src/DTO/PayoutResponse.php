@@ -12,5 +12,6 @@ class PayoutResponse
         public readonly ?string $status = null,
         public readonly ?string $errorMessage = null,
         public readonly array $raw = []
-    ) {}
+    ) {
+    }
 }

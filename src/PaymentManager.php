@@ -22,6 +22,8 @@ use Abitech\Payments\Drivers\Testing\FakePaymentDriver;
  * Uso:
  *   $manager->driver('stripe_checkout')->purchase($dto);
  *   $manager->forTenant('store_42')->driver('mercadopago_api');
+ *
+ * @phpstan-consistent-constructor
  */
 class PaymentManager extends Manager
 {

@@ -11,7 +11,7 @@ use Abitech\Payments\Contracts\ConfigResolverInterface;
 use Abitech\Payments\Http\Middleware\EnforceIdempotencyKey;
 
 /**
- * ServiceProvider del paquete abitech/payments-laravel.
+ * ServiceProvider del paquete abitechdev/payments-laravel.
  *
  * Registra el PaymentManager por petición (scoped), inyecta el ConfigResolver
  * si esta disponible, publica archivos de configuracion y migraciones,
@@ -63,10 +63,6 @@ class PaymentsServiceProvider extends ServiceProvider
     {
         $router = $this->app->make(Router::class);
 
-        if (method_exists($router, 'aliasMiddleware')) {
-            $router->aliasMiddleware('abitech.idempotency', EnforceIdempotencyKey::class);
-        } elseif (method_exists($router, 'middleware')) {
-            $router->middleware('abitech.idempotency', EnforceIdempotencyKey::class);
-        }
+        $router->aliasMiddleware('abitech.idempotency', EnforceIdempotencyKey::class);
     }
 }

@@ -35,7 +35,7 @@ trait HandlesMercadoPagoRefund
             $body = $mpResponse->getContent();
             throw new PaymentGatewayException(
                 "Error al reembolsar pago en Mercado Pago: " . ($body['message'] ?? 'Error de conexion'),
-                $statusCode ?: 500,
+                $statusCode,
             );
         }
 

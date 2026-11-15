@@ -12,5 +12,6 @@ class PaymentInitiated
         public readonly PaymentResponse $response,
         public readonly string $gateway,
         public readonly array $context = []
-    ) {}
+    ) {
+    }
 }

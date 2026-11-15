@@ -28,7 +28,9 @@ use Stripe\Subscription;
 
 class StripeCheckoutDriver extends AbstractPaymentDriver implements SubscriptionChargesInterface, SubscriptionInterface
 {
-    use ConvertsStripeAmounts, ReadsStripeCards, VerifiesWebhookSignature;
+    use ConvertsStripeAmounts;
+    use ReadsStripeCards;
+    use VerifiesWebhookSignature;
 
     /** Facturas por consulta; una suscripción mensual llena dos años. */
     private const CHARGES_PAGE = 24;

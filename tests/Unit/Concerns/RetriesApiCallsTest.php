@@ -69,7 +69,7 @@ class RetriesApiCallsTest extends TestCase
 
     public function test_it_wraps_generic_exception_with_http_code(): void
     {
-        $exception = new class('API Error', 429) extends Exception {};
+        $exception = new class ('API Error', 429) extends Exception {};
 
         try {
             $this->retry(function () use ($exception) {
@@ -121,7 +121,7 @@ class RetriesApiCallsTest extends TestCase
 
     public function test_it_wraps_exception_with_get_status_code_method(): void
     {
-        $exception = new class('Forbidden', 0) extends Exception {
+        $exception = new class ('Forbidden', 0) extends Exception {
             public function getStatusCode(): int
             {
                 return 403;

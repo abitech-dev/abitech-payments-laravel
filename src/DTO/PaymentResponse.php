@@ -13,5 +13,6 @@ class PaymentResponse
         public readonly ?string $redirectUrl = null,
         public readonly ?string $errorMessage = null,
         public readonly array $raw = []
-    ) {}
+    ) {
+    }
 }

@@ -71,7 +71,7 @@ class MercadoPagoCheckoutDriverTest extends TestCase
     public function test_a_missing_sdk_asks_for_the_exact_composer_require(): void
     {
         $transport = FakeMercadoPagoHttpClient::install([]);
-        $driver = new class(['access_token' => 'TEST-token']) extends MercadoPagoCheckoutDriver {
+        $driver = new class (['access_token' => 'TEST-token']) extends MercadoPagoCheckoutDriver {
             protected const SDK_CLASS = 'MercadoPago\\ClaseAusente';
         };
 

@@ -19,7 +19,9 @@ use MercadoPago\Client\Payment\PaymentClient;
 
 class MercadoPagoApiDriver extends AbstractPaymentDriver
 {
-    use HandlesMercadoPagoWebhook, HandlesMercadoPagoRefund, HandlesMercadoPagoPaymentLookup;
+    use HandlesMercadoPagoWebhook;
+    use HandlesMercadoPagoRefund;
+    use HandlesMercadoPagoPaymentLookup;
 
     protected array $supportedCurrencies = ['PEN', 'USD', 'BRL', 'ARS', 'MXN', 'CLP', 'COP'];
 
@@ -116,6 +118,8 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
             ];
 
             $options = $request->idempotencyKey
+                // El SDK documenta un mapa, pero envía cada cabecera como texto.
+                // @phpstan-ignore argument.type
                 ? new RequestOptions(custom_headers: ['X-Idempotency-Key: ' . $request->idempotencyKey])
                 : null;
 

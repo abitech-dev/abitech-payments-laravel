@@ -1,8 +1,31 @@
 {
-    "name": "abitech/payments-laravel",
-    "description": "Motor de pasarelas de pago para aplicaciones Laravel.",
+    "name": "abitechdev/payments-laravel",
+    "description": "Cobra, reembolsa, suscribe y recibe webhooks de Mercado Pago y Stripe en Laravel con una sola interfaz.",
     "type": "library",
     "license": "MIT",
+    "keywords": [
+        "laravel",
+        "payments",
+        "payment-gateway",
+        "mercadopago",
+        "stripe",
+        "webhooks",
+        "subscriptions",
+        "checkout"
+    ],
+    "homepage": "https://github.com/abitech-dev/abitech-payments-laravel",
+    "authors": [
+        {
+            "name": "Abimael Fernandez",
+            "homepage": "https://abitech.dev",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/abitech-dev/abitech-payments-laravel/issues",
+        "source": "https://github.com/abitech-dev/abitech-payments-laravel",
+        "security": "https://github.com/abitech-dev/abitech-payments-laravel/security/policy"
+    },
     "require": {
         "php": "^8.2",
         "ext-bcmath": "*",
@@ -16,10 +39,12 @@
         "illuminate/routing": "^12.69|^13.30"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.5.50|^12.5.8|^13.0",
-        "orchestra/testbench": "^10.0|^11.0",
-        "mockery/mockery": "^1.6",
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.0",
         "mercadopago/dx-php": "^3.0.5",
+        "mockery/mockery": "^1.6",
+        "orchestra/testbench": "^10.0|^11.0",
+        "phpunit/phpunit": "^11.5.50|^12.5.8|^13.0",
         "stripe/stripe-php": "^17.0|^18.0|^19.0|^20.0|^21.0|^22.0"
     },
     "conflict": {
@@ -41,7 +66,9 @@
         }
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "lint": "pint --test",
+        "analyse": "phpstan analyse --no-progress"
     },
     "extra": {
         "laravel": {
