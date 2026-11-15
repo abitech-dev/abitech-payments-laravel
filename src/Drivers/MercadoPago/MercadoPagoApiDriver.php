@@ -116,6 +116,8 @@ class MercadoPagoApiDriver extends AbstractPaymentDriver
             ];
 
             $options = $request->idempotencyKey
+                // El SDK documenta un mapa, pero envía cada cabecera como texto.
+                // @phpstan-ignore argument.type
                 ? new RequestOptions(custom_headers: ['X-Idempotency-Key: ' . $request->idempotencyKey])
                 : null;
 

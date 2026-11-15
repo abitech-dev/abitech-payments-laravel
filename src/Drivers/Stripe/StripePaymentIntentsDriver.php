@@ -105,8 +105,8 @@ class StripePaymentIntentsDriver extends AbstractPaymentDriver
                 success: $status === 'completed' || $status === 'pending',
                 transactionId: $intent->id,
                 status: $status,
-                redirectUrl: $intent->next_action?->redirect_to_url?->url ?? null,
-                errorMessage: $intent->last_payment_error?->message ?? null,
+                redirectUrl: $intent->next_action->redirect_to_url->url ?? null,
+                errorMessage: $intent->last_payment_error->message ?? null,
                 raw: $intent->toArray()
             );
         });

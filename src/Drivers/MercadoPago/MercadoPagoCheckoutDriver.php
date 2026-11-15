@@ -246,7 +246,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
         $this->authenticate();
         $this->throttle('mercadopago_checkout:cancel_subscription');
 
-        return $this->retry(function () use ($subscriptionId, $reason) {
+        return $this->retry(function () use ($subscriptionId) {
             $client = new PreApprovalClient();
             $preapproval = $client->update($subscriptionId, [
                 'status' => 'cancelled',
@@ -308,7 +308,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
             subscriptionId: $preapproval->id,
             status: $preapproval->status,
             planId: $planId,
-            nextBillingDate: $preapproval->next_payment_date ?? $preapproval->auto_recurring?->start_date ?? null,
+            nextBillingDate: $preapproval->next_payment_date ?? $preapproval->auto_recurring->start_date ?? null,
             raw: $raw,
             redirectUrl: $preapproval->init_point ?? null,
             externalReference: $preapproval->external_reference ?? null,
@@ -453,7 +453,7 @@ class MercadoPagoCheckoutDriver extends AbstractPaymentDriver implements Subscri
      * Mercado Pago cobra la suma de precio unitario por cantidad, así que esa
      * suma, hecha con bcmath, debe ser exactamente el monto a cobrar.
      *
-     * @param  Collection<int, array<string, mixed>>  $lines
+     * @param  Collection<int, covariant array<string, mixed>>  $lines
      */
     private static function assertLinesAddUpTo(Collection $lines, string $amount): void
     {
