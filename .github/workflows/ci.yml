@@ -1,96 +1,136 @@
-# Pruebas de cada cambio.
-name: CI
+name: Integración continua
 
-# Una corrida por commit.
 on:
   push:
     branches: [main]
-    paths-ignore: ['docs/**', '**.md']
   pull_request:
     branches: [main]
-    paths-ignore: ['docs/**', '**.md']
-  # Para quien lo reutilice.
   workflow_call:
 
-# Cancela la corrida vieja.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Solo lectura.
 permissions:
   contents: read
 
 env:
   PHP_EXTENSIONS: bcmath, pdo_sqlite, sqlite3
+  GITLEAKS: 8.30.1
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
 
 jobs:
-  # 1. Seguridad; si falla, se detiene.
-  security:
-    name: Seguridad (secretos, composer.json y dependencias)
+  paquete:
+    name: Paquete (Composer, secretos y archivo publicado)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      # Historial completo.
-      - name: Bajar el código con su historial
-        uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      # Excepciones en .gitleaks.toml.
-      - name: Buscar secretos
-        run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
-          ./gitleaks git --redact --no-banner
-      - name: Preparar PHP
-        uses: shivammathur/setup-php@2.37.2
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
-          php-version: '8.3'
+          php-version: "8.3"
           extensions: ${{ env.PHP_EXTENSIONS }}
           coverage: none
+
+      # Esquema de Composer y licencia SPDX.
       - name: Validar composer.json
         run: composer validate --strict --no-check-lock
-      # El paquete no versiona el lock.
-      - name: Resolver dependencias
-        run: composer update --no-install --no-interaction --no-progress
-      # Alto o crítico falla.
-      - name: Auditar paquetes de PHP
-        run: composer audit --locked
 
-  # 2. Pruebas por versión soportada.
-  backend-tests:
-    name: Backend pruebas (PHP ${{ matrix.php }} con Laravel ${{ matrix.laravel }}, ${{ matrix.stability }})
-    needs: security
+      # Keep a Changelog, con la sección de lo próximo a publicar.
+      - name: Revisar el CHANGELOG
+        run: grep -qx '## \[Sin publicar\]' CHANGELOG.md
+
+      # Sin secretos en el historial. Excepciones en .gitleaks.toml.
+      - name: Buscar secretos
+        run: |
+          archivo=gitleaks_${GITLEAKS}_linux_x64.tar.gz
+          curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS/$archivo"
+          echo "$GITLEAKS_SHA256  $archivo" | sha256sum -c
+          tar -xzf "$archivo" gitleaks
+          ./gitleaks git --redact --no-banner
+
+      - name: Auditar dependencias
+        run: |
+          composer update --no-install --no-interaction --no-progress
+          composer audit --locked
+
+      # Lo que descarga Composer, sin las pruebas.
+      - name: Revisar el archivo publicado
+        run: |
+          git archive HEAD | tar -t > contenido.txt
+          for requerido in composer.json LICENSE README.md src/ config/ database/; do
+            grep -qx "$requerido" contenido.txt || { echo "Falta $requerido"; exit 1; }
+          done
+          if grep -E '^(tests|\.github|docs|\.claude)/' contenido.txt; then
+            echo "El archivo publicado lleva carpetas de desarrollo"; exit 1
+          fi
+
+  estatico:
+    name: Estilo PSR-12 y PHPStan
+    needs: paquete
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.3"
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          coverage: none
+
+      - name: Instalar dependencias
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Estilo PSR-12
+        run: composer lint
+
+      - name: PHPStan nivel 5
+        run: composer analyse
+
+  pruebas:
+    name: PHP ${{ matrix.php }} con Laravel ${{ matrix.laravel }} (${{ matrix.estabilidad }})
+    needs: paquete
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
+      # Cada Laravel prometido, con su PHP mínimo.
       matrix:
         include:
-          # Piso de cada rango.
-          - { php: '8.2', laravel: '12.*', testbench: '10.*', stability: prefer-lowest }
-          - { php: '8.3', laravel: '12.*', testbench: '10.*', stability: prefer-stable }
-          # Laravel 13 exige PHP 8.3.
-          - { php: '8.3', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
-          - { php: '8.5', laravel: '13.*', testbench: '11.*', stability: prefer-stable }
+          - { php: "8.2", laravel: "12.*", testbench: "10.*", estabilidad: prefer-lowest }
+          - { php: "8.3", laravel: "12.*", testbench: "10.*", estabilidad: prefer-stable }
+          - { php: "8.3", laravel: "13.*", testbench: "11.*", estabilidad: prefer-stable }
+          - { php: "8.5", laravel: "13.*", testbench: "11.*", estabilidad: prefer-stable }
     steps:
-      - name: Bajar el código
-        uses: actions/checkout@v5.0.0
-      - name: Preparar PHP
-        uses: shivammathur/setup-php@2.37.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php }}
           extensions: ${{ env.PHP_EXTENSIONS }}
           coverage: none
-      # Sin lock, según composer.json.
-      - name: Recuperar la caché de Composer
-        uses: actions/cache@v5.0.5
+
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/composer/files
           key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ hashFiles('composer.json') }}
           restore-keys: composer-${{ matrix.php }}-${{ matrix.laravel }}-
-      - name: Instalar dependencias
+
+      - name: Instalar la combinación
         run: |
-          composer require --dev "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-update --no-interaction
-          composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
-      - name: Correr las pruebas
+          composer require --dev --no-update --no-interaction \
+            "laravel/framework:${{ matrix.laravel }}" \
+            "orchestra/testbench:${{ matrix.testbench }}"
+          composer update --${{ matrix.estabilidad }} --prefer-dist --no-interaction --no-progress
+
+      - name: Pruebas
         run: composer test
