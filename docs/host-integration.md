@@ -1,26 +1,11 @@
 # Integracion en la aplicacion host
 
-Guia paso a paso para integrar `abitech/payments-laravel` en cualquier proyecto Laravel.
+Guia paso a paso para integrar `abitechdev/payments-laravel` en cualquier proyecto Laravel.
 
 ## 1. Instalacion
 
-Agregar el repositorio VCS en `composer.json` de la app host:
-
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/abitech-dev/abitech-payments-laravel.git"
-        }
-    ]
-}
-```
-
-Luego:
-
 ```bash
-composer require abitech/payments-laravel:^2.0
+composer require abitechdev/payments-laravel
 
 # Publicar archivos
 php artisan vendor:publish --tag=abitech-payments-config
