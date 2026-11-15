@@ -1,0 +1,47 @@
+name: Publicación
+
+on:
+  push:
+    branches: [main]
+    paths: [CHANGELOG.md]
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  publicar:
+    name: Etiquetar la versión del CHANGELOG
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # La primera versión con fecha es la que se publica.
+      - name: Leer la versión
+        id: version
+        run: |
+          version=$(grep -m1 -oP '^## \[\K\d+\.\d+\.\d+(?=\] - \d{4}-\d{2}-\d{2})' CHANGELOG.md)
+          echo "numero=$version" >> "$GITHUB_OUTPUT"
+          if git tag -l "v$version" "$version" | grep -q .; then
+            echo "publicada=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Packagist publica la etiqueta por su webhook de GitHub.
+      - name: Crear la etiqueta y el release
+        if: steps.version.outputs.publicada != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.numero }}
+        run: |
+          awk -v encabezado="## [$VERSION]" 'index($0, encabezado) == 1 { dentro = 1; next }
+            dentro && /^## \[/ { exit } dentro' CHANGELOG.md > notas.md
+          gh release create "v$VERSION" --target "$GITHUB_SHA" \
+            --title "v$VERSION" --notes-file notas.md
