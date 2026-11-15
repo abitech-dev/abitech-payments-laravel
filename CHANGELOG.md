@@ -6,6 +6,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y adhi
 
 ## [Sin publicar]
 
+## [3.2.1] - 2026-11-15
+
 ### Cambiado
 
 - El paquete se publica en Packagist como `abitechdev/payments-laravel`.
