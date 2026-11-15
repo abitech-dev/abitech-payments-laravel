@@ -4,7 +4,7 @@ paths:
   - "phpunit.xml.dist"
 ---
 
-# Pruebas (abitech/payments-laravel)
+# Pruebas (abitechdev/payments-laravel)
 
 DIRECTIVA: adapta `tech/testing.md` y la skill `testing-changes` a un
 paquete sin app host; los comandos están en `CLAUDE.md` §2.
@@ -50,6 +50,6 @@ paquete sin app host; los comandos están en `CLAUDE.md` §2.
    - Mal: `expectException()`, la llamada y luego `assertSame(3, $n)`.
    - Bien: `try { ...; } catch (PaymentGatewayException) {}` y después
      `assertSame(3, $n)`.
-6. **Sin herramienta.** Se declaran como no cubiertos al entregar el
-   formato (Pint), el análisis estático (PHPStan) y la mutación. La CI
-   corre gitleaks y `composer audit`.
+6. **Herramientas.** El formato sigue PSR-12 con Pint (`composer lint`)
+   y el análisis estático pasa PHPStan nivel 5 con Larastan
+   (`composer analyse`). La mutación se declara no cubierta al entregar.

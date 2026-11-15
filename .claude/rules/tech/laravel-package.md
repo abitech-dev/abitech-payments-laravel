@@ -72,7 +72,8 @@ código.
      eventos y migraciones. Quitar o cambiar una de ellas sube la mayor.
    - Todo cambio visible entra en la sección sin publicar del
      `CHANGELOG.md` en el mismo commit. Publicar mueve esa sección a la
-     versión con fecha y crea el tag `vX.Y.Z` sobre ese commit.
+     versión con fecha en un PR. Al unirlo, la Action de publicación crea
+     el tag `vX.Y.Z` y Packagist lo toma por su webhook.
 8. **Distribución.** `.gitattributes` con `export-ignore` para lo que la
    app no ejecuta (`tests/`, `phpunit.xml.dist`, `.claude/`, `CLAUDE.md`).
    Sin eso el `vendor/` del host lleva pruebas e instrucciones de IA.

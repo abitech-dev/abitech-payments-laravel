@@ -5,7 +5,7 @@ paths:
   - "CHANGELOG.md"
 ---
 
-# Documentación (abitech/payments-laravel)
+# Documentación (abitechdev/payments-laravel)
 
 DIRECTIVA: adapta `tech/documentation.md` a un `docs/` plano que lee
 quien integra el paquete en una app host.

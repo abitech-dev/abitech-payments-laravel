@@ -2,13 +2,15 @@
 
 ## 1. Proyecto
 
-**abitech/payments-laravel.** Paquete Composer con los drivers de
+**abitechdev/payments-laravel.** Paquete Composer con los drivers de
 pasarelas de pago (Mercado Pago y Stripe) para apps Laravel. Traduce DTO
 a la API de cada pasarela y devuelve DTO normalizados; la app host
 persiste, deduplica y decide.
 
-- Genérico de Abitech y reutilizable fuera de Arsy. Hoy lo instala solo
-  `arsy-account-app`, con `^2.0` desde el repositorio VCS.
+- Genérico de Abitech y reutilizable fuera de Arsy. Se publica en
+  Packagist. Hoy lo instala `arsy-account-app` como
+  `abitech/payments-laravel` desde el repositorio VCS, hasta que cambie
+  al nombre nuevo.
 - Tareas en `../../arsy-architecture/tareas/payments-laravel.md` (PL-01
   a PL-07 y deuda DT-01 a DT-19), con sus diseños en `disenos/`.
 - Contrato v1 sin capas de compatibilidad hasta producción (ADR 0005),
@@ -24,6 +26,8 @@ composer install
 composer test                          # PHPUnit, Unit y Feature
 vendor/bin/phpunit --testsuite Unit    # Unit | Feature
 vendor/bin/phpunit --filter test_a_valid_mercadopago_signature_passes
+composer lint                          # Pint, PSR-12
+composer analyse                       # PHPStan nivel 5
 composer validate
 composer audit
 ```
@@ -35,23 +39,31 @@ local (`project/testing.md` regla 1).
 ## 3. Puertas de calidad
 
 La CI (`.github/workflows/ci.yml`) corre en cada push a `main`, la rama
-de trabajo, y en cada PR hacia ella. Primero busca secretos con gitleaks
-(excepciones en `.gitleaks.toml`), valida `composer.json` y audita las
-dependencias resueltas. Luego corre `composer test` con PHP 8.2 y
-Laravel 12 en `--prefer-lowest`, PHP 8.3 con Laravel 12, y PHP 8.3 y 8.5
-con Laravel 13, que exige PHP 8.3, con el bloqueo de avisos de Composer
-activo. Sin linters. Antes de entregar, estas tres con cero errores;
-`composer audit` sale con 0 tras actualizar el lock local con
-`composer update -W` dentro de los rangos.
+de trabajo, y en cada PR hacia ella.
+
+- **Paquete.** Valida `composer.json` y la sección `[Sin publicar]` del
+  CHANGELOG, busca secretos con gitleaks (excepciones en
+  `.gitleaks.toml`), audita las dependencias y revisa que el archivo que
+  descarga Composer no lleve pruebas, `docs/` ni `.claude/`.
+- **Estático.** Pint con PSR-12 y PHPStan nivel 5 con Larastan.
+- **Pruebas.** `composer test` con PHP 8.2 y Laravel 12 en
+  `--prefer-lowest`, PHP 8.3 con Laravel 12, y PHP 8.3 y 8.5 con
+  Laravel 13, que exige PHP 8.3, con el bloqueo de avisos de Composer
+  activo.
+
+Antes de entregar, estas cinco con cero errores. `composer audit` sale
+con 0 tras actualizar el lock local con `composer update -W` dentro de
+los rangos.
 
 ```bash
 composer test
+composer lint
+composer analyse
 composer validate
 composer audit --locked
 ```
 
-Formato, análisis estático y mutación se declaran no cubiertos
-(`project/testing.md` regla 6).
+La mutación se declara no cubierta (`project/testing.md` regla 6).
 
 ## 4. Lo que sorprende
 
@@ -89,8 +101,9 @@ con el `stack` declarado en su `claude-sync.json`.
 ## 6. Despliegue
 
 - Un paquete no se despliega; se publica según
-  `tech/laravel-package.md` regla 7. El push pide confirmación
-  (`settings.json`).
+  `tech/laravel-package.md` regla 7. Al unir a `main` el PR que fecha la
+  versión, `release.yml` crea la etiqueta y Packagist la publica. El push
+  pide confirmación (`settings.json`).
 - Account fija el tag en su `composer.lock`. Subir esa versión es un
   cambio de account, con su suite (`../../arsy-account-app/CLAUDE.md`
   §2 y §3).
@@ -106,4 +119,5 @@ Las tareas viven en el archivo de tareas de §1.
 | Avisos que no son pago | devuelven `status: 'unknown'` (`HandlesMercadoPagoWebhook.php:68-75`); tarea PL-01 |
 | Middleware de idempotencia | `EnforceIdempotencyKey` solo exige la cabecera; tarea PL-03 lo elimina |
 | `incoming_webhook_logs` | migración publicable que PL-01 retira del paquete |
+| PHPStan | nivel 5; el 6 marca 52 arreglos sin tipo de valor y 10 plantillas de `collect()` |
 | Docs | sin `docs/README.md`, nombres en inglés y sin prefijo de tipo; excepción vigente de `project/documentation.md` regla 4 |
