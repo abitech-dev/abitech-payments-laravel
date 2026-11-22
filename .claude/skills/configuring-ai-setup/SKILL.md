@@ -1,6 +1,6 @@
 ---
 name: configuring-ai-setup
-description: Crea, revisa o refactoriza la configuración de Claude Code de un proyecto (CLAUDE.md, reglas en .claude/rules, skills, hooks, permisos, subagentes, MCP) según el estándar oficial, decide qué va en global, en la biblioteca de stacks o en el proyecto, y la verifica con un validador, una prueba de carga real de reglas, pruebas de comportamiento y una prueba de hooks dentro de una sesión. Usar cuando se pida crear o cambiar una regla, skill, hook o CLAUDE.md, sumar un proyecto o un stack, auditar el costo de contexto o comprobar que la configuración funciona.
+description: Crea, revisa o refactoriza la configuración de Claude Code de un proyecto (CLAUDE.md, reglas en .claude/rules, skills, hooks, permisos, subagentes, MCP) según el estándar oficial, decide qué va en global, en la biblioteca o en el proyecto, y la verifica con un validador, una prueba de carga real de reglas, pruebas de comportamiento y una prueba de hooks dentro de una sesión. Usar cuando se pida crear o cambiar una regla, skill, hook o CLAUDE.md, sumar un proyecto o un stack, auditar el costo de contexto o comprobar que la configuración funciona.
 ---
 
 # Configurar Claude Code
@@ -24,9 +24,11 @@ procedimiento y sus comprobaciones.
 ```
 
 **Proyecto nuevo.** Copiar `_claude/projects/_plantilla/` al proyecto,
-declararlo en `claude-sync.json` con su `stack` (reglas y skills de
-`stacks/`) y sus `muestras`, y `sync.py restaurar <proyecto>`. Una
-tecnología sin regla en la biblioteca se escribe en `stacks/`, nunca en
+declararlo en `claude-sync.json` con su perfil en `extends` (`profiles/`),
+lo que suma o quita en `mas` y `menos`, sus `practicas` (skill
+`choosing-delivery-strategy`) y sus `muestras`, y `sync.py restaurar
+<proyecto>`. Una tecnología sin regla se escribe en el proyecto; `guardar`
+la deja en `library/tech/` y se mueve a su familia con `git mv`, nunca a
 `~/.claude`.
 
 Los scripts se ejecutan, no se leen:
@@ -54,9 +56,10 @@ su copia.
 
 **check_rule_behavior.py** — sesión real por caso: pide una tarea corta y
 comprueba la respuesta contra patrones. Casos de la base en
-`scripts/rule-cases.json` y del proyecto en `.claude/rule-cases.json`.
-Un caso que falla delata una regla ambigua o equivocada: se corrige la
-regla, con un ejemplo «Mal / Bien» si hace falta, no el caso.
+`scripts/rule-cases.json`, del proyecto en `.claude/rule-cases.json` y de
+la biblioteca junto a cada regla (`<regla>.cases.json`), que suma
+`sync.py probar <proyecto>`. Un caso vale si falla sin su regla. Uno que
+falla con ella delata una regla ambigua: se corrige la regla, no el caso.
 
 **check_hooks.py** — sesión real con `--debug hooks`: pasa si el hook
 aparece con `status code 2` cuando debe bloquear y la respuesta de la
@@ -75,3 +78,5 @@ sesión cita su motivo. Probar cada vía (Bash y PowerShell).
   sola.
 - Hook probado solo a mano: en Windows puede no correr nunca dentro de
   Claude Code (`core/06`, «Un hook»).
+- `check_hooks.py` usa `claude -p`, donde los hooks de proyecto no corren:
+  solo prueba los globales. Los de proyecto, en sesión interactiva.

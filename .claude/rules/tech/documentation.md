@@ -26,14 +26,15 @@ en un solo sitio. La documentación se versiona y se revisa con el código
 
 | Ruta | Contenido |
 | --- | --- |
-| `README.md` | qué es, requisitos, puesta en marcha, enlaces a `docs/`; nada más |
-| `CHANGELOG.md` | cambios por versión (Keep a Changelog); `[Sin publicar]` arriba |
+| `README.md` | qué es, requisitos, puesta en marcha, enlaces a `docs/`; su forma, en `tech/readme.md` |
+| `CHANGELOG.md` | cambios por versión; cuándo y cómo, en `tech/repository.md` |
 | `docs/README.md` | índice de `docs/` con una línea por documento |
 | `docs/tutoriales/` | aprender haciendo: un recorrido completo que funciona |
 | `docs/guias/` | lograr una tarea: despliegue, restaurar, alta de un recurso |
 | `docs/referencia/` | consultar datos exactos: API, configuración, plantillas |
 | `docs/explicacion/` | entender: arquitectura, flujos de negocio, conceptos |
 | `docs/decisiones/` | ADR numerados: «0001-titulo-corto.md» |
+| `tmp/` | planes y borradores de una tarea en curso; fuera de git y se borra al terminar |
 
 Una carpeta sin documentos no se crea. En un proyecto pequeño basta
 `README.md` + `docs/` plano con el prefijo del tipo en el nombre.
@@ -49,6 +50,7 @@ Una carpeta sin documentos no se crea. En un proyecto pequeño basta
 | Captura de pantalla de un diagrama | Mermaid o C4 en texto |
 | Ruta o URL absoluta a otro documento | enlace relativo |
 | Secretos, contraseñas o datos personales | variables nombradas y datos de ejemplo |
+| Plan, propuesta o borrador dentro de `docs/` | `tmp/plan-<tema>.md`; al terminar, la explicación o el ADR |
 
 ## Reglas
 
@@ -67,12 +69,17 @@ Una carpeta sin documentos no se crea. En un proyecto pequeño basta
    desde el código cuando se pueda (OpenAPI, esquemas).
 5. **Explicación.** El porqué y el contexto, con diagrama si aclara; sin
    pasos.
-6. **ADR.** Título, estado (propuesta, aceptada, reemplazada por NNNN),
-   contexto, decisión y consecuencias. No se edita una aceptada: se
-   escribe otra que la reemplaza.
+6. **ADR.** Solo para una decisión cara de revertir cuyo porqué
+   preguntará quien llegue (stack, ramas, modelo de datos, proveedor); lo
+   demás va a una explicación o al commit. Título, estado (propuesta,
+   aceptada, reemplazada por NNNN), contexto, decisión y consecuencias. No
+   se edita una aceptada: se escribe otra que la reemplaza.
 7. **Estilo** (Google). Presente, voz activa, frases cortas, términos
    del dominio iguales en todo el proyecto; código en bloques con
    lenguaje; fechas ISO 8601; imágenes con texto alternativo.
 8. **Vigencia.** Un cambio de comportamiento actualiza su documento en
    el mismo cambio; un documento que ya no aplica se borra, no se marca
    «obsoleto».
+9. **Trabajo en curso.** El plan o el análisis de una tarea va en
+   `tmp/`, que el `.gitignore` del proyecto excluye. Se borra al cerrar la
+   tarea; nada versionado lo enlaza. La decisión que deja, en un ADR.

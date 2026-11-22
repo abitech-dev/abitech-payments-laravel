@@ -5,7 +5,9 @@ description: Procedimiento para crear, reorganizar o revisar la documentación d
 
 # Escribir documentación
 
-Norma: `tech/documentation.md`. Plantillas por tipo: [templates.md](templates.md).
+Norma: `tech/documentation.md`. El README, la ficha, la licencia y el
+changelog, con la skill `preparing-repositories`. Plantillas por tipo:
+[templates.md](templates.md).
 
 ## Flujo
 
@@ -16,7 +18,8 @@ Norma: `tech/documentation.md`. Plantillas por tipo: [templates.md](templates.md
 - [ ] 4. Escribir desde la plantilla del tipo
 - [ ] 5. Enlazarlo desde docs/README.md (y desde README.md si es de entrada)
 - [ ] 6. Comprobar (abajo)
-- [ ] 7. Si cambió comportamiento visible: entrada en CHANGELOG.md
+- [ ] 7. Si cambió comportamiento visible: entrada en CHANGELOG.md (tech/repository.md)
+- [ ] 8. README nuevo o reescrito: skill preparing-repositories
 ```
 
 **2. Tipo.** El de la tabla «Estructura» de `tech/documentation.md`. Si

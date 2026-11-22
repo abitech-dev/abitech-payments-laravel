@@ -32,7 +32,7 @@
   {
     "regla": "core/01",
     "nombre": "consulta sin verbo de comando",
-    "prompt": "Responde solo con el nombre del método, sin explicación: un método de una clase PHP Servicio, que no está en este repositorio, que devuelve cuántas actas tiene, sin modificar nada.",
+    "prompt": "Vas a crear una clase nueva, Servicio, que aún no existe en ningún repositorio. Propón solo el nombre, en camelCase y sin explicación, de su método que devuelve cuántas actas tiene sin modificar nada.",
     "debe": [
       "^\\W*[a-z]+[A-Z]?\\w*\\(?"
     ],
@@ -51,38 +51,38 @@
   {
     "regla": "core/01",
     "nombre": "nombre de repositorio con sufijo del catálogo",
-    "prompt": "Los repositorios del producto se llaman good-money-api y good-money-web. Escribe solo el nombre, sin explicación, comillas ni bloque de código, del repositorio nuevo para su colección Bruno de peticiones HTTP.",
+    "prompt": "La empresa es arsy y su producto coworker ya tiene los repositorios arsy-coworker-api y arsy-coworker-web. ¿Cómo se llama el repositorio nuevo para su colección Bruno de peticiones HTTP? En la primera línea escribe solo el nombre del repositorio, sin comillas; en la segunda, la regla que aplicaste.",
     "debe": [
-      "^good-money-collection\\s*$"
+      "\\Aarsy-coworker-collection[ \t]*$"
     ],
     "no_debe": [
-      "api-collection",
-      "_",
-      "[A-Z]"
+      "\\A[^\n]*api-collection",
+      "\\A[^\n]*_",
+      "\\A[^\n]*[A-Z]"
     ]
   },
   {
     "regla": "core/01",
     "nombre": "repositorio de una herramienta de línea de comandos",
-    "prompt": "La empresa es abitech y el producto se llama openchasqui: un monorepo con una herramienta de línea de comandos y sus librerías. Escribe solo el nombre del repositorio, sin explicación, comillas ni bloque de código.",
+    "prompt": "La empresa es abitech y crea un producto nuevo, openchasqui, que todavía no tiene ningún repositorio: un monorepo con una herramienta de línea de comandos y sus librerías. En la primera línea escribe solo el nombre del repositorio, sin comillas; en la segunda, la regla que aplicaste.",
     "debe": [
-      "^abitech-openchasqui-cli\\s*$"
+      "\\Aabitech-openchasqui-cli[ \t]*$"
     ],
     "no_debe": [
-      "_",
-      "[A-Z]",
-      "-lib"
+      "\\A[^\n]*_",
+      "\\A[^\n]*[A-Z]",
+      "\\A[^\n]*-lib"
     ]
   },
   {
     "regla": "core/01",
     "nombre": "paquete npm con la marca en el scope",
-    "prompt": "La marca es abitech y el producto openchasqui. Escribe solo el nombre del paquete npm de su núcleo (core), sin explicación, comillas ni bloque de código.",
+    "prompt": "La marca publica sus paquetes en npm como acme y el producto se llama faro. Escribe solo el nombre del paquete npm de su núcleo (core), sin explicación, comillas ni bloque de código.",
     "debe": [
-      "^@abitech/openchasqui-core\\s*$"
+      "^@acme/faro-core\\s*$"
     ],
     "no_debe": [
-      "@openchasqui/",
+      "@faro/",
       "[A-Z]"
     ]
   }

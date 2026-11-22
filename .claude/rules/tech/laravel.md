@@ -23,7 +23,6 @@ delgados y la lógica en servicios.
 | SQL crudo sin necesidad | Eloquent o Query Builder |
 | URL escrita a mano | `route()` nombrada |
 | FQN en línea (`\App\Models\User`) | `use` en la cabecera |
-| Reglas con pipes (`'required\|max:50'`) | arreglo (`['required', 'max:50']`) |
 | `try/catch` mudo | `Log::error()` con usuario, entidad y excepción |
 | Modelo crudo en la respuesta | `JsonResource` o el contrato del proyecto |
 

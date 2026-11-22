@@ -5,8 +5,8 @@
 ```markdown
 # Desplegar en UAT
 
-Para quien publica una versión en UAT. Deja el entorno con la rama
-`staging` en marcha y comprobado.
+Para quien publica una versión en UAT. Deja el entorno con la última
+versión de `main` en marcha y comprobado.
 
 ## Requisitos
 
@@ -83,20 +83,4 @@ aprobar el informe con las cuentas de ejemplo.
 ## Decisión
 
 ## Consecuencias
-```
-
-## CHANGELOG.md
-
-```markdown
-# Changelog
-
-Formato: Keep a Changelog 1.1; versiones: SemVer 2.0.
-
-## [Sin publicar]
-
-### Añadido
-### Cambiado
-### Corregido
-### Eliminado
-### Seguridad
 ```
