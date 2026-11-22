@@ -2,12 +2,13 @@
 Claude Code (code.claude.com/docs/en/memory y /skills).
 
 Uso:
-    python validate.py [raiz] [--costo RUTA ...]
+    python validate.py [raiz] [--tope TOKENS] [--costo RUTA ...]
 
 Sale con 1 si hay errores; las advertencias no cortan.
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -124,12 +125,12 @@ def patrones_de(campos: dict | None) -> list[str]:
 
 
 def archivos_del_proyecto(raiz: Path) -> list[str]:
+    # Poda antes de bajar: `node_modules` de pnpm trae enlaces que pueden estar rotos.
     rutas = []
-    for ruta in raiz.rglob("*"):
-        partes = ruta.relative_to(raiz).parts
-        if any(p in IGNORADOS for p in partes) or not ruta.is_file():
-            continue
-        rutas.append("/".join(partes))
+    for carpeta, subcarpetas, nombres in os.walk(raiz):
+        subcarpetas[:] = sorted(s for s in subcarpetas if s not in IGNORADOS)
+        base = Path(carpeta).relative_to(raiz)
+        rutas += [(base / n).as_posix() for n in sorted(nombres)]
     return rutas
 
 
@@ -355,7 +356,7 @@ def validar_duplicados(raiz: Path, patrones_excluidos: list[str]) -> None:
                     aviso(f"skills/{carpeta.name}/{archivo.relative_to(original).as_posix()}: copia del proyecto desfasada de la global")
 
 
-def costo(raiz: Path, objetivo: str, patrones_excluidos: list[str]) -> None:
+def cargadas_al_tocar(raiz: Path, objetivo: str, patrones_excluidos: list[str]) -> list[Path]:
     cargadas = []
     for base in (GLOBAL, raiz / ".claude"):
         for regla in reglas_en(base):
@@ -367,6 +368,20 @@ def costo(raiz: Path, objetivo: str, patrones_excluidos: list[str]) -> None:
     for fijo in (GLOBAL / "CLAUDE.md", raiz / "CLAUDE.md", raiz / ".claude" / "CLAUDE.md"):
         if fijo.exists():
             cargadas.append(fijo)
+    return cargadas
+
+
+def revisar_tope(raiz: Path, objetivos: list[str], tope: int, patrones_excluidos: list[str]) -> None:
+    """El presupuesto de contexto como puerta: pasarlo es error, no aviso."""
+    for objetivo in objetivos:
+        tokens = sum(r.stat().st_size for r in cargadas_al_tocar(raiz, objetivo, patrones_excluidos))
+        tokens /= CARACTERES_POR_TOKEN
+        if tokens > tope:
+            error(f"{objetivo}: ~{tokens / 1000:.1f}k tokens al tocarlo, sobre el tope de {tope / 1000:.0f}k")
+
+
+def costo(raiz: Path, objetivo: str, patrones_excluidos: list[str]) -> None:
+    cargadas = cargadas_al_tocar(raiz, objetivo, patrones_excluidos)
     total = sum(r.stat().st_size for r in cargadas)
     tokens = total / CARACTERES_POR_TOKEN
     print(f"\nCOSTO al tocar {objetivo}: {len(cargadas)} archivos, {total / 1024:.1f} KB, ~{tokens / 1000:.1f}k tokens")
@@ -379,7 +394,10 @@ def costo(raiz: Path, objetivo: str, patrones_excluidos: list[str]) -> None:
 
 def main() -> int:
     argumentos = sys.argv[1:]
-    objetivos = []
+    objetivos, tope = [], None
+    if "--tope" in argumentos:
+        i = argumentos.index("--tope")
+        tope, argumentos = int(argumentos[i + 1]), argumentos[:i] + argumentos[i + 2:]
     if "--costo" in argumentos:
         i = argumentos.index("--costo")
         objetivos, argumentos = argumentos[i + 1:], argumentos[:i]
@@ -407,6 +425,8 @@ def main() -> int:
     validar_nombres(raiz / ".claude")
     validar_repeticion(raiz / ".claude")
     validar_hooks(raiz)
+    if tope:
+        revisar_tope(raiz, objetivos, tope, patrones_excluidos)
 
     for texto in avisos:
         print(f"AVISO  {texto}")

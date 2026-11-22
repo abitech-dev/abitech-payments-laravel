@@ -31,19 +31,16 @@ solo, qué hace.
    con plurales naturales y sin abreviaturas crípticas.
 4. **Sin tartamudeo.** El nombre no repite el contexto que ya da su
    clase o módulo.
-5. **Repositorios.** `[empresa]-[producto]-[componente]` en kebab-case
-   (minúsculas, dígitos y guiones medios), con un solo sufijo al final:
-   `-web` (cliente), `-panel` (backoffice), `-mobile`, `-ui` (librería
-   de componentes), `-api`, `-worker` (colas y cron), `-ws`, `-app`
-   (monolito), `-collection` (Bruno o Postman), `-e2e`, `-auth`,
-   `-payments`, `-notifications`, `-iac`, `-k8s`, `-docs`, `-cli`
-   (herramienta de línea de comandos y sus librerías) y `-sdk` (librería
-   que usan otros programas). Una librería para un framework lleva el
-   framework como sufijo (`-laravel`, `-vue`).
-   - Mal: `Arsy_CoworkerAPI`, `good-money-api-collection`, `openchasqui-lib`.
-   - Bien: `arsy-coworker-api`, `good-money-collection`,
-     `abitech-openchasqui-cli`, `abitech-antibot-laravel`.
-6. **Paquetes publicados.** La marca va en el scope o vendor, igual en
-   todos los registros, y el producto en el nombre:
-   `@abitechdev/openchasqui-core` en npm, `abitechdev/antibot-laravel` en
+5. **Repositorios.** `[empresa]-[producto]-[componente]` en kebab-case,
+   siempre los tres segmentos, que son la marca o el cliente dueño, el
+   producto y un sufijo del catálogo (`-api`, `-web`, `-app`, `-cli`…).
+   Catálogo y cómo elegir, en la skill `naming-repositories`. Rige en lo
+   que crea o nombra abitech; si el cliente ya fija sus nombres, se sigue
+   su convención y el proyecto lo anota en su `CLAUDE.md`.
+   - Mal: `Arsy_CoworkerAPI`, `openchasqui-cli`, `good-money-collection`.
+   - Bien: `arsy-coworker-api`, `abitech-openchasqui-cli`,
+     `elise-actas-collection`.
+6. **Paquetes publicados.** La marca va en el scope o vendor y el
+   producto en el nombre: `@abitechdev/openchasqui-core` y
+   `@abitechdev/openchasqui` en npm, `abitech/antibot-laravel` en
    Composer.

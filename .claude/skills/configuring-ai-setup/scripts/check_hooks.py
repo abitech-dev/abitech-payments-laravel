@@ -22,7 +22,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 TIEMPO_MAXIMO = 300
 DEPURACION = Path.home() / ".claude" / "debug"
-LINEA_DE_HOOK = re.compile(r"Hook \w+:|hook command|Could not open|Hooks: Found", re.I)
+LINEA_DE_HOOK = re.compile(r"Hooks? \w+:|Hooks: \w+:\w+ \[|hook command|Could not open|Hooks: Found", re.I)
 
 
 def main() -> int:

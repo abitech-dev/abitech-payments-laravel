@@ -46,7 +46,7 @@ que la IA no deduce del código y cuya ausencia la haría equivocarse.
 | Capa | Global (`~/.claude/`) | Proyecto (`<repo>/.claude/`) |
 | --- | --- | --- |
 | `rules/core/` | conducta, nombres, comentarios, commits, idioma, seguridad, principios de diseño, esta norma y la de redacción; ningún lenguaje en concreto | — |
-| `rules/tech/` | disciplinas de cualquier proyecto (pruebas, documentación) | tecnologías e interfaz, copiadas de la biblioteca `stacks/` según el `stack` del proyecto |
+| `rules/tech/` | disciplinas de cualquier proyecto (pruebas, documentación) | tecnologías e interfaz, copiadas de la biblioteca `library/` según la elección del proyecto |
 | `rules/project/` | — | dominio, diseño, inventario, adaptación de `tech/` |
 | `skills/` | procedimientos de cualquier repo | los del proyecto y los de su stack, que llevan la tecnología en el nombre |
 | hooks | scripts en Python sin dependencias, registrados en `settings.json` global | frases propias del hook de comentarios |
@@ -127,7 +127,8 @@ Cómo se escribe cada pieza, sus límites y su redacción: `core/08`.
 4. **Matcher completo.** Comandos de terminal con `Bash|PowerShell`;
    ediciones con `Edit|Write`.
 5. **Probado dentro de Claude Code**, no solo a mano (skill
-   `configuring-ai-setup`).
+   `configuring-ai-setup`). Un hook de proyecto no corre en `claude -p`:
+   se prueba en una sesión interactiva, con `/hooks` y una edición real.
 
 **Verificación.** Al cambiar cualquier archivo de este ámbito, skill
 `configuring-ai-setup`: validador sin errores, carga real de reglas y

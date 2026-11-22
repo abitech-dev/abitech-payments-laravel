@@ -13,9 +13,17 @@ DIRECTIVA: cada commit pasa una sola vez por las mismas puertas que en
 local, nada se despliega en rojo y cada minuto del plan se cuida, porque
 lo comparten todos los proyectos de la cuenta.
 
+Esta regla vale para cualquier estrategia. Las ramas, los ambientes y la
+forma de publicar son prácticas que elige cada proyecto
+(`.claude/rules/practices/`); sin elegir, la skill
+`choosing-delivery-strategy`. Un proyecto con su estrategia en su
+`CLAUDE.md` o sus workflows la conserva hasta que el usuario pida
+homologarla.
+
 ## Estándares de referencia
 
 - Fowler, *Continuous Integration* · DORA (frecuencia y tasa de fallo)
+- Humble y Farley, *Continuous Delivery* · *Trunk-Based Development*
 - GitHub, *Security hardening for GitHub Actions* · *Reusing workflows*
 - GitHub, *Billing for Actions* (cada job se cobra redondeado al minuto)
 
@@ -23,9 +31,9 @@ lo comparten todos los proyectos de la cuenta.
 
 | Prohibido | Usar |
 | --- | --- |
-| `push` y `pull_request` sobre el mismo commit | `pull_request` solo hacia la rama de trabajo |
+| `push` y `pull_request` sobre el mismo commit | `pull_request` hacia las ramas largas |
 | Despliegue que no espera a las pruebas | `uses: ./.github/workflows/ci.yml` y `needs: ci` |
-| CI propia en la rama de entrega y otra en el despliegue | el despliegue llama a la CI una vez |
+| CI propia en el push y otra en el despliegue | el despliegue llama a la CI una vez |
 | Un job de segundos por herramienta | los baratos juntos en un job |
 | Lo caro en paralelo con lo barato | lo caro con `needs` tras lo barato |
 | Correr por un cambio de `docs/` o `.md` | `paths-ignore` |
@@ -43,19 +51,22 @@ lo comparten todos los proyectos de la cuenta.
 
 | Pieza | Convención | Ejemplo |
 | --- | --- | --- |
-| Archivo | inglés, kebab-case, verbo y destino | `ci.yml`, `deploy-staging.yml`, `deploy-production.yml` |
+| Archivo | inglés, kebab-case, verbo y ambiente | `ci.yml`, `deploy-uat.yml`, `deploy-prod.yml` |
 | ID de job (`needs:`) | inglés, kebab-case | `security`, `frontend`, `backend-static`, `backend-tests`, `deploy` |
-| `name:` de workflow, job y paso | idioma del proyecto | «CI», «Desplegar a UAT», «Revisar tipos (PHPStan)» |
+| `name:` de workflow, job y paso | idioma del proyecto; el ambiente, con su nombre | «CI», «Desplegar a uat», «Revisar tipos (PHPStan)» |
 | Comentario | idioma del proyecto, de 3 a 6 palabras | `# 4. Pruebas, al final.` |
+| Ambiente | el mismo nombre en `APP_ENV`, *Environment* de GitHub y etiqueta de imagen | los de la práctica `environments/` |
+| Secreto por ambiente | en su *Environment*; sin él (repo privado del plan Free), con prefijo | `PROD_DOKPLOY_API_KEY` |
 
-1. **`ci.yml` revisa; `deploy-*.yml` despliega.**
-   - `ci.yml` corre en `push` a la rama de trabajo, en `pull_request`
-     hacia ella y por `workflow_call`.
-   - Cada `deploy-*.yml` corre en `push` a su rama y a mano
-     (`workflow_dispatch`). Primero `ci` (`uses: ./.github/workflows/ci.yml`),
-     luego `deploy` con `needs: ci` y una prueba de humo al final.
-   - El PR de la rama de trabajo a la de entrega muestra el check del
-     push; no hace falta otra corrida.
+1. **Una compilación, promovida.** La imagen se arma una vez, se nombra
+   con la huella del árbol (`arbol-$(git rev-parse HEAD^{tree})`) y pasa
+   tal cual de un ambiente al siguiente; ninguno recompila.
+   - `ci.yml` corre en `pull_request` y por `workflow_call`.
+   - Cada `deploy-<ambiente>.yml` llama primero a `ci`
+     (`uses: ./.github/workflows/ci.yml`), luego imagen, `deploy` y una
+     prueba de humo con tope de tiempo.
+   - Mal: recompilar para `prod` o fijar la configuración al compilar.
+   - Bien: buscar la imagen por la huella y armarla solo si falta.
 2. **Orden de los jobs.** `security` (secretos y auditoría de paquetes)
    primero; `frontend` y `backend-static` en paralelo; `backend-tests`
    al final, tras `backend-static` y, si usa la compilación, también tras
@@ -104,6 +115,6 @@ lo comparten todos los proyectos de la cuenta.
    antes de subir.
 10. **Prueba inestable.** Se arregla o va a cuarentena con su ticket; la
     CI no reintenta en silencio.
-11. **Rama protegida.** Merge a la rama de entrega solo con la CI en
-    verde, si el plan lo permite. La configura quien administra el
-    repositorio y el proyecto anota hasta qué rama llega el equipo.
+11. **Rama protegida.** Merge a una rama larga solo por PR con la CI en verde.
+    En el plan Free, GitHub solo lo exige en repos públicos; en uno
+    privado queda como norma del equipo.
