@@ -1,6 +1,6 @@
 {
     "name": "abitechdev/payments-laravel",
-    "description": "Cobra, reembolsa, suscribe y recibe webhooks de Mercado Pago y Stripe en Laravel con una sola interfaz.",
+    "description": "Cobra, reembolsa, suscribe y recibe webhooks de Mercado Pago y Stripe en Laravel con una sola interfaz",
     "type": "library",
     "license": "MIT",
     "keywords": [
