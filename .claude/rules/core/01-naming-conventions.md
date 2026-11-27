@@ -42,5 +42,6 @@ solo, qué hace.
      `elise-actas-collection`.
 6. **Paquetes publicados.** La marca va en el scope o vendor y el
    producto en el nombre: `@abitechdev/openchasqui-core` y
-   `@abitechdev/openchasqui` en npm, `abitech/antibot-laravel` en
-   Composer.
+   `@abitechdev/openchasqui` en npm, `abitechdev/antibot-laravel` en
+   Composer. El paquete de un cliente lleva su marca, como
+   `arsy/sso-laravel`.

@@ -20,7 +20,8 @@ en un solo sitio. La documentación se versiona y se revisa con el código
 - Keep a Changelog 1.1 + Semantic Versioning 2.0
 - Google Developer Documentation Style Guide · Microsoft Writing Style
   Guide
-- C4 model para diagramas de arquitectura · Mermaid como código
+- C4 model para diagramas de arquitectura · Mermaid como código ·
+  `diagram-design` para SVG con la marca del proyecto
 
 ## Estructura
 
@@ -47,7 +48,7 @@ Una carpeta sin documentos no se crea. En un proyecto pequeño basta
 | Copiar un dato en dos documentos | un dueño y enlaces a él |
 | Historial dentro de un documento vivo | `CHANGELOG.md`, ADR o git |
 | Nombres «Doc1.md», «NOTAS FINAL v2.md» | `kebab-case` descriptivo |
-| Captura de pantalla de un diagrama | Mermaid o C4 en texto |
+| Captura de pantalla de un diagrama | Mermaid, C4 en texto o SVG de `diagram-design` con su HTML en `docs/diagramas/` |
 | Ruta o URL absoluta a otro documento | enlace relativo |
 | Secretos, contraseñas o datos personales | variables nombradas y datos de ejemplo |
 | Plan, propuesta o borrador dentro de `docs/` | `tmp/plan-<tema>.md`; al terminar, la explicación o el ADR |
