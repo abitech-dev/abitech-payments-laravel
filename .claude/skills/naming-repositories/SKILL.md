@@ -97,7 +97,8 @@ nombre. Todos los paquetes quedan bajo la misma marca.
 | --- | --- | --- |
 | npm | `@abitechdev/[producto]-[componente]` | `@abitechdev/openchasqui-core` |
 | npm, paquete principal | `@abitechdev/[producto]` | `@abitechdev/openchasqui` |
-| Composer | `abitech/[producto]-[framework]` | `abitech/antibot-laravel` |
+| Composer | `abitechdev/[producto]-[framework]` | `abitechdev/antibot-laravel` |
+| Composer, paquete de un cliente | `[cliente]/[producto]-[framework]` | `arsy/sso-laravel` |
 
 ## Ejemplos prácticos
 
@@ -106,7 +107,7 @@ nombre. Todos los paquetes quedan bajo la misma marca.
 | Producto separado | `arsy-coworker-api`, `arsy-coworker-web`, `arsy-coworker-panel`, `arsy-coworker-collection` |
 | Monolito | `arsy-academy-app`, `arsy-academy-collection`, `elise-actas-collection` |
 | Herramienta | `abitech-openchasqui-cli`, que publica `@abitechdev/openchasqui` |
-| Librería de framework | `abitech-antibot-laravel`, que publica `abitech/antibot-laravel` |
+| Librería de framework | `abitech-antibot-laravel`, que publica `abitechdev/antibot-laravel` |
 
 ## Comprobar
 

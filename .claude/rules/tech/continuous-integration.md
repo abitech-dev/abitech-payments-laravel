@@ -53,7 +53,7 @@ homologarla.
 | --- | --- | --- |
 | Archivo | inglés, kebab-case, verbo y ambiente | `ci.yml`, `deploy-uat.yml`, `deploy-prod.yml` |
 | ID de job (`needs:`) | inglés, kebab-case | `security`, `frontend`, `backend-static`, `backend-tests`, `deploy` |
-| `name:` de workflow, job y paso | idioma del proyecto; el ambiente, con su nombre | «CI», «Desplegar a uat», «Revisar tipos (PHPStan)» |
+| `name:` de workflow, job y paso | idioma del proyecto, en palabras completas y sin siglas como CI o CD; el ambiente, con su nombre en palabras | «Integración continua», «Desplegar a pruebas», «Desplegar a producción», «Revisar tipos (PHPStan)» |
 | Comentario | idioma del proyecto, de 3 a 6 palabras | `# 4. Pruebas, al final.` |
 | Ambiente | el mismo nombre en `APP_ENV`, *Environment* de GitHub y etiqueta de imagen | los de la práctica `environments/` |
 | Secreto por ambiente | en su *Environment*; sin él (repo privado del plan Free), con prefijo | `PROD_DOKPLOY_API_KEY` |

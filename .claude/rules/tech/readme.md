@@ -15,6 +15,7 @@ escrito con el tono formal del equipo.
   Google, *READMEs*
 - GitHub Docs: *About READMEs*, *Creating diagrams* (Mermaid) e imágenes
   por tema con `<picture>`
+- Plugin `diagram-design` para diagramas SVG con la marca del proyecto
 - Ficha, licencia y changelog: `tech/repository.md`; qué va en `docs/`:
   `tech/documentation.md`; cómo se arma: skill `preparing-repositories`
 
@@ -34,7 +35,7 @@ escrito con el tono formal del equipo.
 | Instalación contada en prosa | bloque copiable con los comandos |
 | Versiones vagas («Node reciente») | versión mínima exacta |
 | Captura de maqueta o sin `alt` | captura real del sistema, con `alt` |
-| Diagrama pegado como imagen | bloque `mermaid` |
+| Diagrama como captura PNG o sin su fuente | SVG de `diagram-design` con su HTML, o bloque `mermaid` |
 | Toda la documentación dentro del README | un párrafo y el enlace a `docs/` |
 | «Generado con…», firmas o créditos a herramientas | nada |
 
@@ -48,14 +49,14 @@ En este orden; la sección que no aplica se omite.
 | Título | el nombre del producto y su componente (`Pilot SSH Web`) |
 | Descripción | una frase de menos de 120 caracteres, igual a la del *About* y del manifiesto |
 | Insignias | CI, versión, licencia; sin título propio |
-| Vista previa | captura real si hay interfaz; si no, un diagrama Mermaid |
-| Características | de 3 a 6 viñetas con lo que resuelve, no cómo |
+| Vista previa | captura real si hay interfaz; si no, un diagrama (regla 7); antes, si suma, una banda de cifras |
+| Características | de 3 a 6 viñetas, o tarjetas en una tabla de 2×2 con ícono, título y una frase; lo que resuelve, no cómo |
 | Requisitos | herramientas con su versión mínima |
 | Inicio rápido | hasta 5 comandos que funcionan copiados tal cual |
 | Uso | tabla `Comando` \| `Para qué`; en una librería, el ejemplo mínimo con su salida |
 | Propias del proyecto | lo que solo ese proyecto necesita (ambientes, API), con título concreto |
 | Documentación | tabla `Quiero…` \| `Documento`, con enlaces a `docs/` |
-| Estructura | árbol corto de carpetas, una línea cada una |
+| Estructura | árbol corto de carpetas, una línea cada una, o su tabla dentro de `<details>` |
 | Contribuir | ramas, PR y comandos de prueba, o enlace a `CONTRIBUTING.md` |
 | Licencia | siempre al final, en tercera persona: «Copyright © 2026 ABItech Perú. Todos los derechos reservados.» y «Software propietario. Las condiciones de uso figuran en LICENSE.» |
 
@@ -75,7 +76,8 @@ En este orden; la sección que no aplica se omite.
    todo el repositorio. Frases cortas y completas, con verbo y con el
    término del dominio; nada que suene a conversación.
 5. **Logo.** El de la marca en `<picture>`, con la versión para fondo
-   claro y la de fondo oscuro, de 64 a 96 px de alto, dentro de un bloque
+   claro y la de fondo oscuro si la marca las tiene, de 64 a 96 px de
+   alto, dentro de un bloque
    `<p align="center">`; el título va en `<h1 align="center">`.
 6. **Imágenes.**
    - En `docs/imagenes/`, PNG o WebP de menos de 300 KB y de 1280 a 1600
@@ -84,8 +86,14 @@ En este orden; la sección que no aplica se omite.
      lo que muestra.
    - Con tema claro y oscuro, las dos versiones en un `<picture>` con
      `prefers-color-scheme`.
-7. **Diagramas.** Mermaid, uno por idea y de hasta 12 nodos, con
-   etiquetas en el idioma del proyecto.
+   - Íconos de 24 px del set de `diagram-design` en `docs/iconos/`, con el
+     color de la marca fijo, su versión `-dark` y la licencia del set.
+7. **Diagramas.** Uno por idea, de hasta 12 nodos, con etiquetas en el
+   idioma del proyecto.
+   - Con el plugin `diagram-design`, el HTML y su SVG exportado con
+     `--system-fonts`, claro y oscuro, en `docs/diagramas/`, dentro de un
+     `<picture>`.
+   - Sin el plugin, un bloque `mermaid`.
 8. **Insignias.** Shields.io, estilo `flat`. En un repositorio privado
    solo las que cargan sin sesión.
 9. **Avisos.** `> [!NOTE]`, `[!IMPORTANT]` o `[!WARNING]`, como mucho dos
@@ -94,3 +102,6 @@ En este orden; la sección que no aplica se omite.
    actualiza el README en el mismo commit.
 11. **Comprobación.** `check_readme.py` de la skill
     `preparing-repositories` sin errores antes del commit.
+12. **Plegables.** La referencia larga (todos los comandos, las claves,
+    el detalle de carpetas) va en `<details>`, con un `<summary>` que dice
+    qué contiene. Lo visible se entiende sin abrir ninguno.

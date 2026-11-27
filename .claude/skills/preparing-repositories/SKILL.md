@@ -39,8 +39,8 @@ o en el entorno local del proyecto.
 - Con interfaz: capturas del ambiente `uat` con el navegador, a 1280×800,
   sin datos personales; tema claro y oscuro si el sistema los tiene.
   Se guardan en `docs/imagenes/` y se comprueba que pesen menos de 300 KB.
-- Sin interfaz: un diagrama Mermaid de cómo encajan las piezas, de hasta
-  12 nodos.
+- Sin interfaz: un diagrama de cómo encajan las piezas, de hasta 12
+  nodos, según `tech/readme.md` regla 7.
 
 **5. README.** La plantilla del tipo; se borra la sección que no aplica.
 La descripción es una sola frase de menos de 120 caracteres y se repite
