@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/imagenes/logo-oscuro.svg">
-    <img alt="Payments for Laravel" src="docs/imagenes/logo-claro.svg" width="350">
+    <img alt="Payments for Laravel" src="docs/imagenes/logo-claro.svg" height="80">
   </picture>
 </p>
 
@@ -141,6 +141,7 @@ Install only the SDK of the gateway you use.
 | Use Stripe | [stripe.md](docs/stripe.md) |
 | Publish and adapt the tables | [migrations.md](docs/migrations.md) |
 | Understand how it is built | [architecture.md](docs/architecture.md) |
+| Know why it is released this way | [ADR 0001](docs/decisiones/0001-ramas-y-publicacion.md) (Spanish) |
 | See changes by version | [CHANGELOG.md](CHANGELOG.md) |
 
 ## Contributing
