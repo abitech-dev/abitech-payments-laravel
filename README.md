@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/imagenes/logo-oscuro.svg">
-    <img alt="Payments para Laravel" src="docs/imagenes/logo-claro.svg" width="350">
+    <img alt="Payments para Laravel" src="docs/imagenes/logo-claro.svg" height="80">
   </picture>
 </p>
 
@@ -141,6 +141,7 @@ Solo se instala el SDK de la pasarela que se usa.
 | Usar Stripe | [stripe.md](docs/stripe.md) |
 | Publicar y adaptar las tablas | [migrations.md](docs/migrations.md) |
 | Entender cómo está hecho | [architecture.md](docs/architecture.md) |
+| Saber por qué se publica así | [ADR 0001](docs/decisiones/0001-ramas-y-publicacion.md) |
 | Ver los cambios por versión | [CHANGELOG.md](CHANGELOG.md) |
 
 ## Contribuir
